@@ -1,0 +1,15 @@
+[package]
+name = "ralaire_vello"
+version.workspace = true
+edition.workspace = true
+
+
+[dependencies]
+ralaire_core.workspace = true
+vello.workspace = true
+tracing.workspace = true
+winit.workspace = true
+tokio.workspace = true
+futures.workspace = true
+parley.workspace = true
+rayon.workspace = true
