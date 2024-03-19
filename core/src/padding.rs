@@ -100,3 +100,12 @@ impl From<[f64; 4]> for Padding {
         }
     }
 }
+
+impl PartialEq for Padding {
+    fn eq(&self, other: &Self) -> bool {
+        self.top == other.top
+            && self.right == other.right
+            && self.bottom == other.bottom
+            && self.left == other.left
+    }
+}

@@ -1,11 +1,9 @@
-#![feature(async_closure)]
 use ralaire_core::{
     Affine, DebugLayer, Rect, RenderCommand, Renderer, RoundedRect, TextLayout, WindowSize,
 };
-// use ralaire_core::{Color, Stroke};
+use ralaire_core::{Color, Stroke};
 use rayon::prelude::*;
 use std::sync::Arc;
-use vello::glyph::{skrifa::raw::FontRef, GlyphContext};
 use winit::window::Window;
 pub struct RenderEngine<'a> {
     size: WindowSize,
@@ -18,9 +16,14 @@ pub struct RenderEngine<'a> {
 impl<'a> RenderEngine<'a> {
     pub async fn new(window: winit::window::Window, size: WindowSize) -> RenderEngine<'a> {
         let window = Arc::new(window);
-        let mut render_cx = vello::util::RenderContext::new().unwrap();
+        let mut render_cx = vello::util::RenderContext::new();
         let surface = render_cx
-            .create_surface(window.clone(), size.width, size.height)
+            .create_surface(
+                window.clone(),
+                size.width,
+                size.height,
+                wgpu::PresentMode::Mailbox,
+            )
             .await
             .unwrap();
         let renderer = vello::Renderer::new(
@@ -29,6 +32,7 @@ impl<'a> RenderEngine<'a> {
                 surface_format: Some(surface.format),
                 use_cpu: false,
                 antialiasing_support: vello::AaSupport::all(),
+                num_init_threads: None,
             },
         )
         .unwrap();
@@ -37,16 +41,15 @@ impl<'a> RenderEngine<'a> {
             size,
             render_cx,
             surface,
-            window: window,
+            window,
             renderer,
         }
     }
     pub fn window(&self) -> &Window {
         &self.window
     }
-    fn render_command_list(command_list: Vec<RenderCommand>) -> vello::SceneFragment {
-        let mut fragment = vello::SceneFragment::new();
-        let mut builder = vello::SceneBuilder::for_fragment(&mut fragment);
+    fn render_command_list(command_list: Vec<RenderCommand>) -> vello::Scene {
+        let mut fragment = vello::Scene::new();
         let mut absolute_bounds: Vec<RoundedRect> = vec![];
         for command in command_list {
             match command {
@@ -63,19 +66,19 @@ impl<'a> RenderEngine<'a> {
                             .to_vec2();
 
                     absolute_bounds.push(trans);
-                    // // tracing::debug!("Clipped translated bounds: {:#?}", trans);
-                    // builder.stroke(
-                    //     &Stroke::default().with_dashes(0., [3., 3.]),
-                    //     transform,
-                    //     &Color::DARK_MAGENTA,
-                    //     None,
-                    //     &trans,
-                    // );
-                    builder.push_layer(blend, 1.0, transform, &trans);
+                    // tracing::debug!("Clipped translated bounds: {:#?}", trans);
+                    fragment.stroke(
+                        &Stroke::default().with_dashes(0., [3., 3.]),
+                        transform,
+                        &Color::DARK_MAGENTA,
+                        None,
+                        &trans,
+                    );
+                    fragment.push_layer(blend, 1.0, transform, &trans);
                 }
                 RenderCommand::PopLayer => {
                     absolute_bounds.pop();
-                    builder.pop_layer();
+                    fragment.pop_layer();
                 }
                 RenderCommand::FillShape {
                     transform,
@@ -84,7 +87,7 @@ impl<'a> RenderEngine<'a> {
                 } => {
                     let transform =
                         transform.pre_translate(absolute_bounds.last().unwrap().origin().to_vec2());
-                    builder.fill(
+                    fragment.fill(
                         vello::peniko::Fill::NonZero,
                         transform,
                         &brush,
@@ -100,7 +103,7 @@ impl<'a> RenderEngine<'a> {
                 } => {
                     let transform =
                         transform.pre_translate(absolute_bounds.last().unwrap().origin().to_vec2());
-                    builder.stroke(&style, transform, &brush, None, &shape);
+                    fragment.stroke(&style, transform, &brush, None, &shape);
                 }
                 RenderCommand::DrawSvg {
                     transfomr: _,
@@ -109,7 +112,6 @@ impl<'a> RenderEngine<'a> {
                 RenderCommand::DrawText { layout } => {
                     let transform =
                         Affine::translate(absolute_bounds.last().unwrap().origin().to_vec2());
-                    let mut gcx = GlyphContext::new();
                     let layout = match layout {
                         TextLayout::ParleyLayout(layout) => layout,
                     };
@@ -120,22 +122,38 @@ impl<'a> RenderEngine<'a> {
                             let run = glyph_run.run();
                             let font = run.font();
                             let font_size = run.font_size();
-                            let font_ref = font.as_ref();
-                            if let Ok(font_ref) = FontRef::from_index(font_ref.data, font.index()) {
-                                let style = glyph_run.style();
-                                let vars: [(&str, f32); 0] = [];
-                                let mut gp = gcx.new_provider(&font_ref, font_size, false, vars);
-                                for glyph in glyph_run.glyphs() {
-                                    if let Some(fragment) = gp.get(glyph.id, Some(&style.brush.0)) {
+                            let style = glyph_run.style();
+                            let synthesis = run.synthesis();
+                            let glyph_xform = synthesis
+                                .skew()
+                                .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0));
+                            let coords = run
+                                .normalized_coords()
+                                .iter()
+                                .map(|coord| {
+                                    vello::skrifa::instance::NormalizedCoord::from_bits(*coord)
+                                })
+                                .collect::<Vec<_>>();
+                            fragment
+                                .draw_glyphs(font)
+                                .brush(&style.brush)
+                                .transform(transform)
+                                .glyph_transform(glyph_xform)
+                                .font_size(font_size)
+                                .normalized_coords(&coords)
+                                .draw(
+                                    vello::peniko::Fill::NonZero,
+                                    glyph_run.glyphs().map(|glyph| {
                                         let gx = x + glyph.x;
                                         let gy = y - glyph.y;
-                                        let xform = Affine::translate((gx as f64, gy as f64))
-                                            * Affine::scale_non_uniform(1.0, -1.0);
-                                        builder.append(&fragment, Some(transform * xform));
-                                    }
-                                    x += glyph.advance;
-                                }
-                            }
+                                        x += glyph.advance;
+                                        vello::glyph::Glyph {
+                                            id: glyph.id as _,
+                                            x: gx,
+                                            y: gy,
+                                        }
+                                    }),
+                                );
                         }
                     }
                 }
@@ -144,9 +162,8 @@ impl<'a> RenderEngine<'a> {
         fragment
     }
 }
-#[allow(unused_mut)]
 impl<'a> Renderer for RenderEngine<'a> {
-    async fn render(&mut self, mut command_lists: Vec<Vec<RenderCommand>>, debug: &mut DebugLayer) {
+    fn render(&mut self, command_lists: Vec<Vec<RenderCommand>>, debug: &mut DebugLayer) {
         tracing::debug!("Render requested with {} layers", command_lists.len());
         // tracing::debug!("Render requested with commands: {:#?}", command_lists);
 
@@ -158,30 +175,14 @@ impl<'a> Renderer for RenderEngine<'a> {
             antialiasing_method: vello::AaConfig::Area,
         };
         let mut scene = vello::Scene::new();
-        let mut builder = vello::SceneBuilder::for_scene(&mut scene);
         debug.encode_started();
-        // let mut join_handles: Vec<_> = vec![];
-        // for commands in command_lists {
-        //     join_handles.push(tokio::spawn(async move {
-        //         RenderEngine::render_command_list(commands)
-        //     }))
-        // }
-        // // tracing::info!("join handles: {}", join_handles.len());
-        // let fragments = futures::future::try_join_all(join_handles).await.unwrap();
-
         let fragments = command_lists
             .into_par_iter()
             .map(RenderEngine::render_command_list)
             .collect::<Vec<_>>();
-
-        // let fragments = command_lists
-        //     .into_iter()
-        //     .map(RenderEngine::render_command_list)
-        //     .collect::<Vec<_>>();
-
         debug.encode_finished();
         for fragment in fragments {
-            builder.append(&fragment, None);
+            scene.append(&fragment, None);
         }
 
         let surface_texture = self

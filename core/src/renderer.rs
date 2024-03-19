@@ -1,25 +1,17 @@
-use crate::{
-    Affine, BezPath, BlendMode, Brush, Color, DebugLayer, Shape, Size, Stroke, WindowSize,
-};
+use crate::{Affine, BezPath, BlendMode, Brush, DebugLayer, Shape, Size, Stroke, WindowSize};
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
 use parley::Layout;
 use peniko::kurbo::RoundedRect;
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct ParleyBrush(pub Brush);
-
-impl Default for ParleyBrush {
-    fn default() -> ParleyBrush {
-        ParleyBrush(Brush::Solid(Color::rgb8(0, 0, 0)))
-    }
-}
-impl parley::style::Brush for ParleyBrush {}
 #[derive(Clone)]
 pub enum TextLayout {
-    ParleyLayout(Layout<ParleyBrush>),
+    ParleyLayout(Layout<Brush>),
 }
 
-impl std::fmt::Debug for TextLayout {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for TextLayout {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::ParleyLayout(arg0) => f
                 .debug_tuple("ParleyLayout")
@@ -162,11 +154,7 @@ pub enum RenderCommand {
 
 pub trait Renderer {
     /// Takes a list of [`RenderCommand`] from each widget and renders them in order.
-    fn render(
-        &mut self,
-        command_lists: Vec<Vec<RenderCommand>>,
-        debug: &mut DebugLayer,
-    ) -> impl std::future::Future<Output = ()> + Send;
+    fn render(&mut self, command_lists: Vec<Vec<RenderCommand>>, debug: &mut DebugLayer);
 
     fn resize(&mut self, new_size: WindowSize);
 }

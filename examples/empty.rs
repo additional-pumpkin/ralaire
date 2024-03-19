@@ -1,13 +1,8 @@
-use ralaire::{
-    app::App,
-    widget::{empty, Widget},
-};
+use ralaire::{app::App, view::View};
 use ralaire_core::Command;
-
 #[derive(Debug, Clone)]
 enum Message {}
 
-#[derive(PartialEq, Clone)]
 struct Empty;
 
 impl App for Empty {
@@ -21,12 +16,8 @@ impl App for Empty {
         "Examples - Empty"
     }
 
-    fn header(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
-    }
-
-    fn view(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
+    fn view(&self) -> impl View<Self::Message> {
+        "".to_owned()
     }
 
     fn update(&mut self, _message: Self::Message) -> Vec<Command<Self::Message>> {

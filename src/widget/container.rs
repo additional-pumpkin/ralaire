@@ -1,51 +1,46 @@
-use crate::widget::Widget;
-use ralaire_core::{alignment, Padding, Point, Size};
-// use ralaire_core::{Affine, Color};
-use parley::FontContext;
 use std::vec;
 
-use super::widget::{Constraints, Length, WidgetData, WidgetSize};
+use crate::widget::{Constraints, Length, Widget, WidgetSize};
+use parley::FontContext;
+use ralaire_core::{alignment, Padding, Point, Size};
+
+use super::WidgetData;
 
 #[derive(Debug)]
-pub struct Container<Message> {
+pub struct ContainerWidget<Message>
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
     size: Size,
-    v_alignment: alignment::Vertical,
-    h_alignment: alignment::Horizontal,
-    padding: Padding,
+    pub(crate) h_alignment: alignment::Horizontal,
+    pub(crate) v_alignment: alignment::Vertical,
+    pub(crate) padding: Padding,
     child: WidgetData<Message>,
 }
 
-impl<Message> Container<Message>
+impl<Message> ContainerWidget<Message>
 where
-    Message: Clone + std::fmt::Debug,
+    Message: core::fmt::Debug + Clone + 'static,
 {
-    pub fn new(child: impl Widget<Message> + 'static) -> Self {
-        Container {
+    pub fn new(
+        child: WidgetData<Message>,
+        h_alignment: alignment::Horizontal,
+        v_alignment: alignment::Vertical,
+        padding: Padding,
+    ) -> Self {
+        ContainerWidget {
             size: Size::ZERO,
-            v_alignment: alignment::Vertical::Center,
-            h_alignment: alignment::Horizontal::Center,
-            padding: Padding::ZERO,
-            child: WidgetData::new(child),
+            h_alignment,
+            v_alignment,
+            padding,
+            child,
         }
-    }
-    pub fn pad<P: Into<Padding>>(mut self, padding: P) -> Self {
-        self.padding = padding.into();
-        self
-    }
-
-    pub fn v_align(mut self, v_alignment: alignment::Vertical) -> Self {
-        self.v_alignment = v_alignment;
-        self
-    }
-    pub fn h_align(mut self, h_alignment: alignment::Horizontal) -> Self {
-        self.h_alignment = h_alignment;
-        self
     }
 }
 
-impl<Message> Widget<Message> for Container<Message>
+impl<Message> Widget<Message> for ContainerWidget<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     fn size_hint(&self) -> WidgetSize {
         WidgetSize {
@@ -57,15 +52,14 @@ where
     fn children(&self) -> Vec<&WidgetData<Message>> {
         vec![&self.child]
     }
-
     fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
         vec![&mut self.child]
     }
-
     fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
         let size = constraints.max_size;
         self.size = size;
         let child_max_size = size - Size::new(self.padding.horizontal(), self.padding.vertical());
+
         self.child.widget.layout(
             Constraints {
                 min_size: Size::ZERO,

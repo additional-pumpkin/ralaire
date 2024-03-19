@@ -1,19 +1,18 @@
-use std::{
+use core::{
     f64::consts::PI,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicU64, Ordering},
 };
+extern crate alloc;
+use alloc::sync::Arc;
 
-use crate::Id;
+use crate::AnimationId;
 
 #[derive(Debug, Clone)]
 pub struct Animation {
-    id: Id,
+    id: AnimationId,
     value: Arc<AtomicU64>,
-    update_interval: std::time::Duration,
-    duration: std::time::Duration,
+    update_interval: core::time::Duration,
+    duration: core::time::Duration,
     direction: AnimationDirection,
     easing_curve: InternalEasingCurve,
 }
@@ -65,20 +64,20 @@ enum InternalEasingCurve {
     Custom(fn(f64) -> f64),
 }
 impl Animation {
-    pub fn new(direction: AnimationDirection, duration: std::time::Duration) -> Self {
+    pub fn new(direction: AnimationDirection, duration: core::time::Duration) -> Self {
         match direction {
             AnimationDirection::Forward => Self {
-                id: Id::unique(),
+                id: AnimationId::unique(),
                 value: Arc::new(AtomicU64::new(0)),
-                update_interval: std::time::Duration::from_millis(16),
+                update_interval: core::time::Duration::from_millis(16),
                 duration,
                 direction,
                 easing_curve: InternalEasingCurve::Predefined(EasingCurve::EaseInOutCubic),
             },
             AnimationDirection::Backward => Self {
-                id: Id::unique(),
+                id: AnimationId::unique(),
                 value: Arc::new(AtomicU64::new(duration.as_millis() as u64 / 16)),
-                update_interval: std::time::Duration::from_millis(16),
+                update_interval: core::time::Duration::from_millis(16),
                 duration,
                 direction,
                 easing_curve: InternalEasingCurve::Predefined(EasingCurve::EaseInOutCubic),
@@ -118,9 +117,9 @@ impl Animation {
         match self.easing_curve {
             InternalEasingCurve::Predefined(curve) => match curve {
                 EasingCurve::Linear => x,
-                EasingCurve::EaseInSine => 1. - f64::cos((x * PI) / 2.),
-                EasingCurve::EaseOutSine => f64::sin((x * PI) / 2.),
-                EasingCurve::EaseInOutSine => -(f64::cos(PI * x) - 1.) / 2.,
+                EasingCurve::EaseInSine => 1. - ((x * PI) / 2.).cos(),
+                EasingCurve::EaseOutSine => ((x * PI) / 2.).sin(),
+                EasingCurve::EaseInOutSine => -((PI * x).cos() - 1.) / 2.,
                 EasingCurve::EaseInQuad => x * x,
                 EasingCurve::EaseOutQuad => 1. - (1. - x) * (1. - x),
                 EasingCurve::EaseInOutQuad => {
@@ -182,13 +181,13 @@ impl Animation {
                         (2. - (2. as f64).powf(-20. * x + 10.)) / 2.
                     }
                 }
-                EasingCurve::EaseInCirc => 1. - f64::sqrt(1. - x * x),
-                EasingCurve::EaseOutCirc => f64::sqrt(1. - (x - 1.) * (x - 1.)),
+                EasingCurve::EaseInCirc => 1. - (1. - x * x).sqrt(),
+                EasingCurve::EaseOutCirc => (1. - (x - 1.) * (x - 1.)).sqrt(),
                 EasingCurve::EaseInOutCirc => {
                     if x < 0.5 {
-                        (1. - f64::sqrt(1. - 4. * x * x)) / 2.
+                        (1. - (1. - 4. * x * x)).sqrt() / 2.
                     } else {
-                        (f64::sqrt(1. - (-2. * x + 2.) * (-2. * x + 2.)) + 1.) / 2.
+                        ((1. - (-2. * x + 2.) * (-2. * x + 2.)).sqrt() + 1.) / 2.
                     }
                 }
                 EasingCurve::EaseInBack => 2.70158 * x * x * x - 1.70158 * x * x,
@@ -211,8 +210,7 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else {
-                        -(2. as f64).powf(10. * x - 10.)
-                            * f64::sin((x * 10. - 10.75) * 2. * PI / 3.)
+                        -(2. as f64).powf(10. * x - 10.) * ((x * 10. - 10.75).sin() * 2. * PI / 3.)
                     }
                 }
                 EasingCurve::EaseOutElastic => {
@@ -221,7 +219,7 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else {
-                        (2. as f64).powf(-10. * x) * f64::sin((x * 10. - 0.75) * 2. * PI / 3.) + 1.
+                        (2. as f64).powf(-10. * x) * ((x * 10. - 0.75) * 2. * PI / 3.).sin() + 1.
                     }
                 }
                 EasingCurve::EaseInOutElastic => {
@@ -231,11 +229,11 @@ impl Animation {
                         1.
                     } else if x < 0.5 {
                         -((2. as f64).powf(20. * x - 10.)
-                            * f64::sin((20. * x - 11.125) * 2. * PI / 4.5))
+                            * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
                             / 2.
                     } else {
                         ((2. as f64).powf(-20. * x + 10.)
-                            * f64::sin((20. * x - 11.125) * 2. * PI / 4.5))
+                            * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
                             / 2.
                             + 1.
                     }
@@ -253,13 +251,13 @@ impl Animation {
             InternalEasingCurve::Custom(custom) => (custom)(x),
         }
     }
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> AnimationId {
         self.id
     }
-    pub fn update_interval(&self) -> std::time::Duration {
+    pub fn update_interval(&self) -> core::time::Duration {
         self.update_interval
     }
-    pub fn duration(&self) -> std::time::Duration {
+    pub fn duration(&self) -> core::time::Duration {
         self.duration
     }
     pub fn direction(&self) -> AnimationDirection {

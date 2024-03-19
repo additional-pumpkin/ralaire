@@ -1,14 +1,12 @@
 // Copyright 2019 Héctor Ramón, Iced contributors
 use std::time::{Duration, Instant};
+use tracing::{info, span, Level};
 pub struct DebugLayer {
     startup_start: Instant,
     startup_duration: Duration,
 
     update_start: Instant,
     update_durations: TimeBuffer,
-
-    header_start: Instant,
-    header_durations: TimeBuffer,
 
     view_start: Instant,
     view_durations: TimeBuffer,
@@ -39,27 +37,24 @@ impl DebugLayer {
             startup_duration: Duration::from_secs(0),
 
             update_start: now,
-            update_durations: TimeBuffer::new(200),
-
-            header_start: now,
-            header_durations: TimeBuffer::new(200),
+            update_durations: TimeBuffer::new(10),
 
             view_start: now,
-            view_durations: TimeBuffer::new(200),
+            view_durations: TimeBuffer::new(10),
 
             layout_start: now,
-            layout_durations: TimeBuffer::new(200),
+            layout_durations: TimeBuffer::new(10),
 
             event_start: now,
-            event_durations: TimeBuffer::new(200),
+            event_durations: TimeBuffer::new(10),
 
             draw_start: now,
-            draw_durations: TimeBuffer::new(200),
+            draw_durations: TimeBuffer::new(10),
             encode_start: now,
-            encode_durations: TimeBuffer::new(200),
+            encode_durations: TimeBuffer::new(10),
 
             render_start: now,
-            render_durations: TimeBuffer::new(200),
+            render_durations: TimeBuffer::new(10),
         }
     }
 
@@ -77,14 +72,6 @@ impl DebugLayer {
 
     pub fn update_finished(&mut self) {
         self.update_durations.push(self.update_start.elapsed());
-    }
-
-    pub fn header_started(&mut self) {
-        self.header_start = Instant::now();
-    }
-
-    pub fn header_finished(&mut self) {
-        self.header_durations.push(self.header_start.elapsed());
     }
 
     pub fn view_started(&mut self) {
@@ -136,43 +123,40 @@ impl DebugLayer {
     }
 
     pub fn log(&mut self) {
-        tracing::info!("Startup: duration={:?}", self.startup_duration);
-        tracing::info!(
+        let span = span!(Level::INFO, "perf");
+        let _guard = span.enter();
+        info!("Startup: duration={:?}", self.startup_duration);
+        info!(
             "Update: avg={:?}, max={:?}",
             self.update_durations.average(),
             self.update_durations.max()
         );
-        tracing::info!(
-            "Header: avg={:?}, max={:?}",
-            self.header_durations.average(),
-            self.header_durations.max()
-        );
-        tracing::info!(
+        info!(
             "View: avg={:?}, max={:?}",
             self.view_durations.average(),
             self.view_durations.max()
         );
-        tracing::info!(
+        info!(
             "Layout: avg={:?}, max={:?}",
             self.layout_durations.average(),
             self.layout_durations.max()
         );
-        tracing::info!(
+        info!(
             "Event: avg={:?}, max={:?}",
             self.event_durations.average(),
             self.event_durations.max()
         );
-        tracing::info!(
+        info!(
             "Draw: avg={:?}, max={:?}",
             self.draw_durations.average(),
             self.draw_durations.max()
         );
-        tracing::info!(
+        info!(
             "Encode: avg={:?}, max={:?}",
             self.encode_durations.average(),
             self.encode_durations.max()
         );
-        tracing::info!(
+        info!(
             "Render: avg={:?}, max={:?}",
             self.render_durations.average(),
             self.render_durations.max()

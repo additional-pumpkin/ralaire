@@ -1,13 +1,12 @@
-use ralaire::app::App;
-use ralaire::row;
-use ralaire::widget::{button, empty, text, Widget};
+use ralaire::view::{button, flex};
+use ralaire::view_seq;
+use ralaire::{app::App, view::View};
 use ralaire_core::{Color, Command};
 #[derive(Debug, Clone)]
 enum Message {
     IncrementCounter,
     DecrementCounter,
 }
-#[derive(Clone, PartialEq)]
 struct Counter {
     counter: i32,
 }
@@ -22,29 +21,25 @@ impl App for Counter {
         "Examples - Counter"
     }
 
-    fn header(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
-    }
-
-    fn view(&self) -> impl Widget<Self::Message> + 'static {
-        row!(
-            button(text("increment"))
+    fn view(&self) -> impl View<Self::Message> {
+        flex(view_seq!(
+            button("increment".to_owned())
                 .on_press(Message::IncrementCounter)
                 .color(Color::PINK)
                 .radii(5.),
-            text(format!["counter: {}", self.counter]),
-            button(text("decrement"))
+            format!["counter: {}", self.counter],
+            button("decrement".to_owned())
                 .on_press(Message::DecrementCounter)
                 .color(Color::LIGHT_BLUE)
                 .radii(5.),
-        )
+        ))
         .spacing(30.)
     }
 
     fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
         match message {
-            Message::IncrementCounter => self.counter += 1,
-            Message::DecrementCounter => self.counter -= 1,
+            Message::IncrementCounter => self.counter += rand::random::<i32>().abs() >> 20,
+            Message::DecrementCounter => self.counter -= rand::random::<i32>().abs() >> 20,
         }
         vec![]
     }

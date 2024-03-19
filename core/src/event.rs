@@ -6,6 +6,10 @@ pub mod touch;
 pub mod window;
 use crate::WindowId;
 use winit::window::CursorIcon;
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum Cursor {
@@ -136,10 +140,10 @@ pub fn widget_event_from_window_event(
     widget_position: Point,
 ) -> Option<WidgetEvent> {
     match event {
-        window::Event::WindowResize(_) => None,
-        window::Event::WindowCloseRequested => None,
-        window::Event::WindowScaleFactorChanged(_) => None,
-        window::Event::WindowRedrawRequested => None,
+        window::Event::Resized(_) => None,
+        window::Event::CloseRequested => None,
+        window::Event::ScaleFactorChanged(_) => None,
+        window::Event::RedrawRequested => None,
         window::Event::Keyboard(keyboard_event) => Some(WidgetEvent::Keyboard(keyboard_event)),
         window::Event::Mouse(mut mouse_event) => {
             match mouse_event {
@@ -242,11 +246,12 @@ pub fn window_event(
     use winit::event::WindowEvent;
 
     match event {
-        WindowEvent::Resized(new_size) => Some(window::Event::WindowResize((*new_size).into())),
+        WindowEvent::RedrawRequested => Some(window::Event::RedrawRequested),
+        WindowEvent::Resized(new_size) => Some(window::Event::Resized((*new_size).into())),
         WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-            Some(window::Event::WindowScaleFactorChanged(*scale_factor))
+            Some(window::Event::ScaleFactorChanged(*scale_factor))
         }
-        WindowEvent::CloseRequested => Some(window::Event::WindowCloseRequested),
+        WindowEvent::CloseRequested => Some(window::Event::CloseRequested),
         WindowEvent::CursorMoved { position, .. } => {
             Some(window::Event::Mouse(mouse::Event::Move {
                 position: Point::new(position.x, position.y),
@@ -258,6 +263,8 @@ pub fn window_event(
                 winit::event::MouseButton::Left => Some(mouse::MouseButton::Left),
                 winit::event::MouseButton::Right => Some(mouse::MouseButton::Right),
                 winit::event::MouseButton::Middle => Some(mouse::MouseButton::Middle),
+                winit::event::MouseButton::Back => Some(mouse::MouseButton::Back),
+                winit::event::MouseButton::Forward => Some(mouse::MouseButton::Forward),
                 _ => None,
             };
             if let Some(button) = button {

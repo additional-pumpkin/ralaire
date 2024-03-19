@@ -3,8 +3,11 @@ name = "ralaire"
 version.workspace = true
 edition.workspace = true
 
+[dev-dependencies]
+rand = "0.8.5"
 
 [dependencies]
+itertools.workspace = true
 ralaire_core.workspace = true
 ralaire_vello.workspace = true
 tracing.workspace = true
@@ -29,13 +32,19 @@ bitflags = "2.4.1"
 tokio = { version = "1.35.1", features = ["full"] }
 futures = "0.3.30"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-winit = { git = "https://github.com/rust-windowing/winit/", default-features = false, features = [
+tracing-subscriber = { version = "0.3.18", features = [
+    "env-filter",
+    "fmt",
+    "std",
+] }
+winit = { version = "0.30.0", default-features = false, features = [
     "rwh_06",
     "wayland",
 
 ] }
-vello = { git = "https://github.com/additional-pumpkin/vello.git" }
+wgpu = "0.20.0"
+vello = { git = "https://github.com/linebender/vello" }
 parley = { git = "https://github.com/dfrg/parley" }
-peniko = { git = "https://github.com/linebender/peniko", rev = "629fc3325b016a8c98b1cd6204cb4ddf1c6b3daa" }
+peniko = "0.1.0"
 rayon = "1.8.0"
+itertools = "0.13.0"

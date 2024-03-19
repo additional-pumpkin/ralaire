@@ -1,0 +1,12 @@
+[default]
+name=Default
+runtime=podman:1b473c4ee6adbe64da87d2c0efdc713e8a8fbde4b7b08464c6f61e9dabd84805
+toolchain=default
+config-opts=
+run-opts=
+prefix=/var/home/lain/.var/app/org.gnome.Builder/cache/gnome-builder/install/ralaire/podman-724e9f09887d78644785a0236dd97f78c0333f8f5ef3cbf588b2f808ddaaf9f9
+app-id=
+postbuild=
+prebuild=
+run-command=
+default=true

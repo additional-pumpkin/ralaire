@@ -1,5 +1,7 @@
-use ralaire::app::App;
-use ralaire::widget::{button, container, empty, text, Widget};
+use ralaire::{
+    app::App,
+    view::{button, container, View},
+};
 use ralaire_core::{Animation, AnimationDirection, Color, Command};
 #[derive(Debug, Clone)]
 enum Message {
@@ -7,25 +9,27 @@ enum Message {
     StartAnimation,
     FinishedAnimation,
 }
-#[derive(Clone, PartialEq)]
 struct ColorAnimation {
     start_color: Color,
     end_color: Color,
-    duration: std::time::Duration,
+    duration: core::time::Duration,
     color: Color,
+    color_name: String,
     animation: Animation,
 }
 impl App for ColorAnimation {
     type Message = Message;
 
     fn new() -> Self {
-        let duration = std::time::Duration::from_secs(3);
+        let duration = core::time::Duration::from_secs(1);
         Self {
             color: Color::PINK,
             start_color: Color::PINK,
             end_color: Color::LIGHT_BLUE,
+            color_name: "Pink".to_owned(),
             duration,
-            animation: Animation::new(AnimationDirection::Forward, duration),
+            animation: Animation::new(AnimationDirection::Forward, duration)
+                .with_custom_easing(custom_easing),
         }
     }
 
@@ -33,13 +37,9 @@ impl App for ColorAnimation {
         "Examples - ColorAnimation"
     }
 
-    fn header(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
-    }
-
-    fn view(&self) -> impl Widget<Self::Message> + 'static {
+    fn view(&self) -> impl View<Self::Message> {
         container(
-            button(text("Animated button"))
+            button(format!("Animated button ({})", self.color_name))
                 .color(self.color)
                 .radii(10.)
                 .on_press(Message::StartAnimation),
@@ -62,10 +62,14 @@ impl App for ColorAnimation {
             Message::FinishedAnimation => {
                 self.animation = match &self.animation.direction() {
                     AnimationDirection::Forward => {
+                        self.color_name = "Blue".to_owned();
                         Animation::new(AnimationDirection::Backward, self.duration)
+                            .with_custom_easing(custom_easing)
                     }
                     AnimationDirection::Backward => {
+                        self.color_name = "Pink".to_owned();
                         Animation::new(AnimationDirection::Forward, self.duration)
+                            .with_custom_easing(custom_easing)
                     }
                 };
                 vec![]
@@ -118,4 +122,8 @@ fn interpolate(start: Color, end: Color, factor: f64) -> Color {
                 + linear_component(start.a as f64 / 255.),
         ),
     )
+}
+
+fn custom_easing(value: f64) -> f64 {
+    -2. / (1. + value) + 2.
 }
