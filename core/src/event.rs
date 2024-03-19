@@ -6,6 +6,10 @@ pub mod touch;
 pub mod window;
 use crate::WindowId;
 use winit::window::CursorIcon;
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum Cursor {

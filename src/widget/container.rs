@@ -1,10 +1,9 @@
-use crate::widget::Widget;
-use ralaire_core::{alignment, Padding, Point, Size};
-// use ralaire_core::{Affine, Color};
-use parley::FontContext;
-use std::vec;
+use std::marker::PhantomData;
 
-use super::widget::{Constraints, Length, WidgetData, WidgetSize};
+// use ralaire_core::{Affine, Color};
+use crate::widget::{Constraints, Length, Widget, WidgetCx, WidgetSize};
+use parley::FontContext;
+use ralaire_core::{alignment, Padding, Point, Size, WidgetId};
 
 #[derive(Debug)]
 pub struct Container<Message> {
@@ -12,20 +11,19 @@ pub struct Container<Message> {
     v_alignment: alignment::Vertical,
     h_alignment: alignment::Horizontal,
     padding: Padding,
-    child: WidgetData<Message>,
+    child: WidgetId,
+    phantom_data: PhantomData<Message>,
 }
 
-impl<Message> Container<Message>
-where
-    Message: Clone + std::fmt::Debug,
-{
-    pub fn new(child: impl Widget<Message> + 'static) -> Self {
+impl<Message> Container<Message> {
+    pub fn new(child: WidgetId) -> Self {
         Container {
             size: Size::ZERO,
             v_alignment: alignment::Vertical::Center,
             h_alignment: alignment::Horizontal::Center,
             padding: Padding::ZERO,
-            child: WidgetData::new(child),
+            child,
+            phantom_data: PhantomData,
         }
     }
     pub fn pad<P: Into<Padding>>(mut self, padding: P) -> Self {
@@ -45,7 +43,7 @@ where
 
 impl<Message> Widget<Message> for Container<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     fn size_hint(&self) -> WidgetSize {
         WidgetSize {
@@ -54,19 +52,20 @@ where
         }
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
-        vec![&self.child]
+    fn children(&self) -> Vec<WidgetId> {
+        vec![self.child]
     }
-
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        vec![&mut self.child]
-    }
-
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
+    fn layout(
+        &mut self,
+        widget_cx: &mut WidgetCx<Message>,
+        constraints: Constraints,
+        font_cx: &mut FontContext,
+    ) {
         let size = constraints.max_size;
         self.size = size;
         let child_max_size = size - Size::new(self.padding.horizontal(), self.padding.vertical());
-        self.child.widget.layout(
+        widget_cx.layout(
+            self.child,
             Constraints {
                 min_size: Size::ZERO,
                 max_size: size,
@@ -74,37 +73,37 @@ where
             font_cx,
         );
 
-        let WidgetSize { width, height } = self.child.widget.size_hint();
-        self.child.size = match (width, height) {
+        let WidgetSize { width, height } = widget_cx.size_hint(self.child);
+        *widget_cx.size_mut(self.child) = match (width, height) {
             (Length::Fixed(w), Length::Fixed(h)) => Size::new(w, h),
             (Length::Fixed(w), Length::Flexible(_)) => Size::new(w, child_max_size.height),
             (Length::Flexible(_), Length::Fixed(h)) => Size::new(child_max_size.width, h),
             (Length::Flexible(_), Length::Flexible(_)) => child_max_size,
         };
-        self.child.widget.layout(
+        let child_size = widget_cx.size(self.child);
+        widget_cx.layout(
+            self.child,
             Constraints {
-                min_size: self.child.size,
-                max_size: self.child.size,
+                min_size: child_size,
+                max_size: child_size,
             },
             font_cx,
         );
-        let padding = self.padding.fit(self.child.size, self.size);
+        let padding = self.padding.fit(child_size, self.size);
         let x = match self.h_alignment {
             alignment::Horizontal::Left => padding.left,
             alignment::Horizontal::Center => {
-                (self.size.width - padding.horizontal() - self.child.size.width) / 2. + padding.left
+                (self.size.width - padding.horizontal() - child_size.width) / 2. + padding.left
             }
-            alignment::Horizontal::Right => self.size.width - padding.right - self.child.size.width,
+            alignment::Horizontal::Right => self.size.width - padding.right - child_size.width,
         };
         let y = match self.v_alignment {
             alignment::Vertical::Top => padding.top,
             alignment::Vertical::Center => {
-                (self.size.height - padding.vertical() - self.child.size.height) / 2. + padding.top
+                (self.size.height - padding.vertical() - child_size.height) / 2. + padding.top
             }
-            alignment::Vertical::Bottom => {
-                self.size.height - padding.bottom - self.child.size.height
-            }
+            alignment::Vertical::Bottom => self.size.height - padding.bottom - child_size.height,
         };
-        self.child.position = Point::new(x.max(0.), y.max(0.));
+        *widget_cx.position_mut(self.child) = Point::new(x.max(0.), y.max(0.));
     }
 }

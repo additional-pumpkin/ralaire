@@ -1,28 +1,17 @@
-use std::sync::{Arc, Mutex};
-
 use super::App;
-use crate::app::window::AppWindow;
+use crate::{app::window::AppWindow, view::RootView};
 use parley::FontContext;
-use ralaire_core::{event::ResizeDirection, DebugLayer, Id};
+use ralaire_core::{AnimationId, DebugLayer};
+use std::sync::{Arc, Mutex};
 use winit::{
     error::EventLoopError,
     event::{Event, WindowEvent},
-    event_loop::{EventLoop, EventLoopWindowTarget},
+    event_loop::{ActiveEventLoop, EventLoop},
 };
-#[derive(Debug, Clone)]
-pub enum InternalMessage {
-    DragResizeWindow(ResizeDirection),
-    DragMoveWindow,
-}
-#[derive(Debug, Clone)]
-pub enum AppMessage<UserMessage: std::fmt::Debug + Clone + 'static> {
-    Internal(InternalMessage),
-    User(UserMessage),
-}
 
 pub struct AppState<'a, Message>
 where
-    Message: std::fmt::Debug + Clone + 'static,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     pub runner: tokio::runtime::Runtime,
     pub debug: DebugLayer,
@@ -30,13 +19,13 @@ where
     pub title: String,
     font_cx: FontContext,
     messages: Vec<Message>,
-    animations_running: Arc<Mutex<Vec<(Id, Message)>>>,
+    animations_running: Arc<Mutex<Vec<(AnimationId, Message)>>>,
     main_window: Option<AppWindow<'a, Message>>,
-    _sub_windows: Vec<AppWindow<'a, Message>>,
+    _child_windows: Vec<AppWindow<'a, Message>>,
 }
 impl<'a, Message> Default for AppState<'a, Message>
 where
-    Message: std::fmt::Debug + Clone + 'static,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     fn default() -> Self {
         let runner = tokio::runtime::Builder::new_multi_thread()
@@ -52,13 +41,13 @@ where
             messages: vec![],
             animations_running: Arc::new(Mutex::new(vec![])),
             main_window: None,
-            _sub_windows: vec![],
+            _child_windows: vec![],
         }
     }
 }
 impl<'a, Message> AppState<'a, Message>
 where
-    Message: std::fmt::Debug + Clone + Send,
+    Message: core::fmt::Debug + Clone + Send,
 {
     pub fn new() -> Self {
         AppState::default()
@@ -69,12 +58,9 @@ where
         event_handler: F,
     ) -> Result<(), EventLoopError>
     where
-        F: FnMut(Event<T>, &EventLoopWindowTarget),
+        F: FnMut(Event<T>, &ActiveEventLoop),
     {
         event_loop.run(event_handler)
-    }
-    pub fn set_main_window(&mut self, main_window: AppWindow<'a, Message>) {
-        self.main_window = Some(main_window);
     }
     pub fn run<A>(mut self) -> Result<(), EventLoopError>
     where
@@ -82,17 +68,23 @@ where
         A: App<Message = Message>,
     {
         let mut app = A::new();
-        let mut old_app = app.clone();
-        let mut first_update = true;
-        let mut new_size: winit::dpi::PhysicalSize<u32>;
+        let mut new_size = winit::dpi::PhysicalSize::<u32>::default();
         let event_loop = self.event_loop;
         let event_loop_proxy = Arc::new(event_loop.create_proxy());
-        if let Some(main_window) = &mut self.main_window {
-            new_size = main_window.size();
-        } else {
-            new_size = winit::dpi::PhysicalSize::default()
-        }
-        let event_handler = move |event: Event<Message>, elwt: &EventLoopWindowTarget| match event {
+
+        let event_handler = move |event: Event<Message>, event_loop: &_| match event {
+            Event::Resumed => {
+                let main_window = self.runner.block_on(AppWindow::new(
+                    event_loop,
+                    app.title().into(),
+                    RootView::new(Box::new(app.view())),
+                    &mut self.debug,
+                ));
+                self.main_window = Some(main_window);
+                if let Some(main_window) = &mut self.main_window {
+                    new_size = main_window.size();
+                }
+            }
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -101,7 +93,7 @@ where
                     if window_id == main_window.id() {
                         match event {
                             WindowEvent::CloseRequested => {
-                                elwt.exit();
+                                event_loop.exit();
                             }
                             WindowEvent::Resized(physical_size) => {
                                 new_size = *physical_size;
@@ -152,20 +144,20 @@ where
                 self.debug.update_finished();
 
                 if let Some(main_window) = &mut self.main_window {
-                    if old_app != app || first_update {
-                        first_update = false;
-                        self.debug.header_started();
-                        main_window.set_title(app.title().into());
-                        main_window.set_header(app.header());
-                        self.debug.header_finished();
-                        self.debug.view_started();
-                        main_window.set_view(app.view());
-                        self.debug.view_finished();
-                        old_app = app.clone();
+                    // TODO: reconciliate view trees here
+                    main_window.set_title(app.title().into());
+                    self.debug.view_started();
+                    let new = RootView::new(Box::new(app.view()));
+                    new.reconciliate(
+                        &main_window.root_view,
+                        &mut main_window.root_widget,
+                        &mut main_window.widget_cx,
+                    );
+                    main_window.set_root_view(new);
+                    self.debug.view_finished();
 
-                        // NOTE: This is to force doing layout since the widgets are new
-                        // TODO: Make set_title() and set_header() set a needs layout flag
-                    }
+                    // NOTE: This is to force doing layout since the widgets are new
+                    // TODO: Make set_title() and set_header() set a needs layout flag
                     main_window.resize(new_size, &mut self.font_cx, &mut self.debug);
                     if updated {
                         main_window.update();
@@ -234,7 +226,7 @@ where
                     .clone()
                     .into_iter()
                     .find(|anim| {
-                        std::mem::discriminant(&anim.1) == std::mem::discriminant(&message)
+                        core::mem::discriminant(&anim.1) == std::mem::discriminant(&message)
                     })
                     .is_some()
                 {

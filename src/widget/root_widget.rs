@@ -1,17 +1,14 @@
-use crate::app::{AppMessage, InternalMessage};
-use crate::widget::{Empty, Widget};
+use crate::widget::{Constraints, Length, Widget, WidgetCx, WidgetSize};
+use core::f64::consts::PI;
 use parley::FontContext;
 use ralaire_core::event::mouse::MouseButton;
 use ralaire_core::event::{ResizeDirection, WidgetEvent};
 use ralaire_core::{
-    event, Affine, BlendMode, Color, Id, Point, Rect, RenderCx, RoundedRect, Shape, Size,
+    event, Affine, AppMessage, BlendMode, Color, InternalMessage, Point, Rect, RenderCx,
+    RoundedRect, Shape, Size, WidgetId,
 };
-use ralaire_core::{Brush, Circle, Gradient, IdPath};
-use std::f64::consts::PI;
-
-use crate::widget::WidgetData;
-
-use super::widget::{Constraints, Length, WidgetSize};
+use ralaire_core::{Brush, Circle, Gradient, WidgetIdPath};
+use std::marker::PhantomData;
 
 const CORNER_RADIUS: f64 = 12.;
 const SHADOW_WIDTH: f64 = 15.;
@@ -39,72 +36,177 @@ fn interpolate(start: f64, end: f64, factor: f64) -> f64 {
         (linear_component(end) - linear_component(start)) * factor + linear_component(start),
     )
 }
-
+#[derive(Debug, Clone, Copy)]
+pub struct BarWidget {
+    pub left: Option<WidgetId>,
+    pub middle: Option<WidgetId>,
+    pub right: Option<WidgetId>,
+}
 #[derive(Debug)]
-pub struct RootWidget<Message> {
-    pub id: Id,
+pub struct RootWidget<Message>
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    pub id: WidgetId,
     bounds: RoundedRect,
     size: Size, // includes shadows
-    view: WidgetData<Message>,
-    header_left: WidgetData<Message>,
-    header_middle: WidgetData<Message>,
-    header_right: WidgetData<Message>,
+    content: WidgetId,
+    _phantom_message: PhantomData<Message>,
 }
 
 impl<Message> RootWidget<Message>
 where
-    Message: Clone + std::fmt::Debug,
+    Message: core::fmt::Debug + Clone + 'static,
 {
-    pub fn new() -> Self {
+    pub fn new(content: WidgetId) -> Self {
         RootWidget {
-            id: Id::unique(),
+            id: WidgetId::unique(),
             bounds: Rect::ZERO.to_rounded_rect(CORNER_RADIUS),
             size: Size::ZERO,
-            view: WidgetData::new(Empty::new()),
-            header_left: WidgetData::new(Empty::new()),
-            header_middle: WidgetData::new(Empty::new()),
-            header_right: WidgetData::new(Empty::new()),
+            content,
+            _phantom_message: PhantomData,
         }
     }
-    pub fn set_view(&mut self, child: impl Widget<Message> + 'static) {
-        self.view = WidgetData::new(child)
-            .with_position(Point::new(SHADOW_WIDTH, SHADOW_WIDTH + HEADER_BAR_HEIGHT))
+    pub fn set_content(&mut self, widget: WidgetId) {
+        self.content = widget
     }
 
-    pub fn set_header_left(&mut self, child: impl Widget<Message> + 'static) {
-        self.header_left =
-            WidgetData::new(child).with_position(Point::new(SHADOW_WIDTH, SHADOW_WIDTH))
+    pub fn content(&self) -> WidgetId {
+        self.content
     }
-    pub fn set_header_middle(&mut self, child: impl Widget<Message> + 'static) {
-        self.header_middle =
-            WidgetData::new(child).with_position(Point::new(SHADOW_WIDTH, SHADOW_WIDTH))
+
+    pub fn render(&mut self, render_cx: &mut RenderCx, widget_cx: &WidgetCx<Message>) {
+        render_cx.push_layer(
+            BlendMode::default(),
+            Affine::default(),
+            self.size.to_rounded_rect(0.),
+        );
+        self.draw(render_cx);
+        render_cx.push_layer(BlendMode::default(), Affine::default(), self.bounds);
+        for child in self.children() {
+            let position = widget_cx.position(child);
+            let size = widget_cx.size(child);
+            let bounds = Rect::from_origin_size(position, size)
+                .to_rounded_rect(widget_cx.bounds_radii(child));
+            render_cx.push_layer(BlendMode::default(), Affine::default(), bounds);
+            render(child, widget_cx, render_cx);
+            render_cx.pop_layer();
+        }
+        render_cx.pop_layer();
+        render_cx.pop_layer();
     }
-    pub fn set_header_right(&mut self, child: impl Widget<Message> + 'static) {
-        self.header_right =
-            WidgetData::new(child).with_position(Point::new(SHADOW_WIDTH, SHADOW_WIDTH))
+
+    pub fn bounds_tree(
+        &self,
+        _id_path: WidgetIdPath,
+        position: Point,
+        widget_cx: &WidgetCx<Message>,
+    ) -> Vec<(WidgetIdPath, RoundedRect)> {
+        let id_path = vec![self.id];
+        let mut v = vec![(id_path.clone(), self.bounds)];
+        for child in self.children() {
+            let mut child_id_path = id_path.clone();
+            child_id_path.push(child);
+            v.push((
+                child_id_path.clone(),
+                Rect::from_origin_size(position, widget_cx.size(child))
+                    .to_rounded_rect(widget_cx.bounds_radii(child)),
+            ));
+            let child_position = widget_cx.position(child);
+            v.extend_from_slice(&bounds_tree(
+                child,
+                &widget_cx,
+                child_id_path.clone(),
+                position + child_position.to_vec2(),
+            ))
+        }
+        v
+    }
+    pub fn send_event(
+        &mut self,
+        event: event::WidgetEvent,
+        event_cx: &mut event::EventCx<AppMessage<Message>>,
+        mut recipient: WidgetIdPath,
+        widget_cx: &mut WidgetCx<Message>,
+    ) {
+        recipient.remove(0);
+        if self.event(event.clone(), event_cx) == event::Status::Ignored {
+            if let Some(&first) = recipient.first() {
+                let child = self
+                    .children()
+                    .into_iter()
+                    .find(|&widget_id| widget_id == first);
+                if let Some(child) = child {
+                    let widget_event = event::widget_event(event, widget_cx.position(child));
+                    send_event(child, widget_cx, widget_event, event_cx, recipient);
+                } else {
+                    panic!("Stale widget")
+                }
+            }
+        }
+    }
+    pub fn send_hover(
+        &mut self,
+        hover: bool,
+        mut recipient: WidgetIdPath,
+        widget_cx: &mut WidgetCx<Message>,
+    ) {
+        recipient.remove(0);
+        if self.set_hover(hover) == event::Status::Ignored {
+            if let Some(&first) = recipient.first() {
+                let child = self
+                    .children()
+                    .into_iter()
+                    .find(|&widget_id| widget_id == first);
+                if let Some(child) = child {
+                    send_hover(child, widget_cx, hover, recipient);
+                }
+            }
+        }
+    }
+    pub fn root_layout(
+        &mut self,
+        constraints: Constraints,
+        font_cx: &mut FontContext,
+        widget_cx: &mut WidgetCx<Message>,
+    ) {
+        let size = constraints.max_size;
+        self.size = size;
+        self.bounds = Rect::from_origin_size(
+            Point::new(SHADOW_WIDTH, SHADOW_WIDTH),
+            size - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
+        )
+        .to_rounded_rect(CORNER_RADIUS);
+        let content_max_size = self.bounds.rect().size();
+
+        widget_cx.layout(
+            self.content,
+            Constraints {
+                min_size: Size::ZERO,
+                max_size: content_max_size,
+            },
+            font_cx,
+        );
+
+        let WidgetSize { width, height } = widget_cx.size_hint(self.content);
+        *widget_cx.size_mut(self.content) = match (width, height) {
+            (Length::Fixed(w), Length::Fixed(h)) => Size::new(w, h),
+            (Length::Fixed(w), Length::Flexible(_)) => Size::new(w, content_max_size.height),
+            (Length::Flexible(_), Length::Fixed(h)) => Size::new(content_max_size.width, h),
+            (Length::Flexible(_), Length::Flexible(_)) => content_max_size,
+        };
+        *widget_cx.position_mut(self.content) = Point::new(0., 0.);
     }
 }
 
 impl<Message> Widget<Message> for RootWidget<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
-    fn children(&self) -> Vec<&WidgetData<Message>> {
-        vec![
-            &self.header_left,
-            &self.header_middle,
-            &self.header_right,
-            &self.view,
-        ]
+    fn children(&self) -> Vec<WidgetId> {
+        vec![self.content]
     }
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        vec![
-            &mut self.header_left,
-            &mut self.header_middle,
-            &mut self.header_right,
-            &mut self.view,
-        ]
-    }
+
     // Normally shadows are implemented with blur, but here we approximate the gaussian
     // function exp(-8x^2) by using 11 color points and linear interpolation between
     // the SHADOW_COLOR and SHADOW_FADE_COLOR where the factor is given by the function
@@ -560,82 +662,15 @@ where
         }
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
-        let size = constraints.max_size;
-        self.size = size;
-        self.bounds = Rect::from_origin_size(
-            Point::new(SHADOW_WIDTH, SHADOW_WIDTH),
-            size - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
-        )
-        .to_rounded_rect(CORNER_RADIUS);
-        let header_middle_max_size = Size::new(self.bounds.rect().width(), HEADER_BAR_HEIGHT);
-        self.header_middle.widget.layout(
-            Constraints {
-                min_size: Size::ZERO,
-                max_size: header_middle_max_size,
-            },
-            font_cx,
-        );
-        let WidgetSize { width, height } = self.header_middle.widget.size_hint();
-        self.header_middle.size = match (width, height) {
-            (Length::Fixed(w), Length::Fixed(h)) => Size::new(w, h),
-            (Length::Fixed(w), Length::Flexible(_)) => Size::new(w, header_middle_max_size.height),
-            (Length::Flexible(_), Length::Fixed(h)) => Size::new(header_middle_max_size.width, h),
-            (Length::Flexible(_), Length::Flexible(_)) => header_middle_max_size,
-        };
-        let view_max_size = self.bounds.rect().size() - Size::new(0., HEADER_BAR_HEIGHT);
-        self.view.widget.layout(
-            Constraints {
-                min_size: Size::ZERO,
-                max_size: view_max_size,
-            },
-            font_cx,
-        );
-
-        let WidgetSize { width, height } = self.view.widget.size_hint();
-        self.view.size = match (width, height) {
-            (Length::Fixed(w), Length::Fixed(h)) => Size::new(w, h),
-            (Length::Fixed(w), Length::Flexible(_)) => Size::new(w, view_max_size.height),
-            (Length::Flexible(_), Length::Fixed(h)) => Size::new(view_max_size.width, h),
-            (Length::Flexible(_), Length::Flexible(_)) => view_max_size,
-        };
+    fn layout(
+        &mut self,
+        _widget_cx: &mut WidgetCx<Message>,
+        _constraints: Constraints,
+        _font_cx: &mut FontContext,
+    ) {
+        panic!();
     }
-    fn render(&self, render_cx: &mut RenderCx) {
-        render_cx.push_layer(
-            BlendMode::default(),
-            Affine::default(),
-            self.size.to_rounded_rect(0.),
-        );
-        self.draw(render_cx);
 
-        // draw header
-        render_cx.push_layer(
-            BlendMode::default(),
-            Affine::default(),
-            Rect::from_origin_size(
-                self.header_middle.position,
-                Size::new(self.bounds.width(), HEADER_BAR_HEIGHT),
-            )
-            .to_rounded_rect((CORNER_RADIUS, CORNER_RADIUS, 0., 0.)),
-        );
-        self.header_middle.widget.render(render_cx);
-        render_cx.pop_layer();
-
-        // draw view
-        render_cx.push_layer(
-            BlendMode::default(),
-            Affine::default(),
-            Rect::from_origin_size(
-                self.view.position,
-                self.bounds.rect().size() - Size::new(0., HEADER_BAR_HEIGHT),
-            )
-            .to_rounded_rect((0., 0., CORNER_RADIUS, CORNER_RADIUS)),
-        );
-
-        self.view.widget.render(render_cx);
-        render_cx.pop_layer();
-        render_cx.pop_layer();
-    }
     fn event(
         &mut self,
         event: event::WidgetEvent,
@@ -692,7 +727,7 @@ where
                                 event::Status::Ignored
                             }
                         } else if Rect::from_origin_size(
-                            self.header_middle.position,
+                            Point::new(SHADOW_WIDTH, SHADOW_WIDTH),
                             Size::new(self.bounds.width(), HEADER_BAR_HEIGHT),
                         )
                         .to_rounded_rect((CORNER_RADIUS, CORNER_RADIUS, 0., 0.))
@@ -713,24 +748,94 @@ where
             _ => event::Status::Ignored,
         }
     }
+}
 
-    fn bounds_tree(&self, _id_path: IdPath, position: Point) -> Vec<(IdPath, RoundedRect)> {
-        let id_path = vec![self.id];
-        let mut v = vec![(id_path.clone(), self.bounds)];
-        for child in self.children() {
-            let mut child_id_path = id_path.clone();
-            child_id_path.push(child.id);
-            v.push((
-                child_id_path.clone(),
-                Rect::from_origin_size(position, child.size)
-                    .to_rounded_rect(child.widget.bounds_radii()),
-            ));
-            v.extend_from_slice(
-                &child
-                    .widget
-                    .bounds_tree(child_id_path.clone(), position + child.position.to_vec2()),
-            )
+/// Used by the library to render child widgets and calls draw
+fn render<Message>(widget_id: WidgetId, widget_cx: &WidgetCx<Message>, render_cx: &mut RenderCx)
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    widget_cx.draw(widget_id, render_cx);
+    for child in widget_cx.children(widget_id) {
+        let bounds = Rect::from_origin_size(child.position, child.size)
+            .to_rounded_rect(widget_cx.bounds_radii(child.id));
+        render_cx.push_layer(BlendMode::default(), Affine::default(), bounds);
+        render(child.id, widget_cx, render_cx);
+        render_cx.pop_layer();
+    }
+    widget_cx.overlay(widget_id, render_cx);
+}
+pub fn send_event<Message>(
+    widget_id: WidgetId,
+    widget_cx: &mut WidgetCx<Message>,
+    event: event::WidgetEvent,
+    event_cx: &mut event::EventCx<AppMessage<Message>>,
+    mut recipient: WidgetIdPath,
+) where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    recipient.remove(0);
+    if widget_cx.event(widget_id, event.clone(), event_cx) == event::Status::Ignored {
+        if let Some(&first) = recipient.first() {
+            let child = widget_cx
+                .children(widget_id)
+                .into_iter()
+                .find(|wd| wd.id == first);
+            if let Some(child) = child {
+                let widget_event = event::widget_event(event, child.position);
+                send_event(child.id, widget_cx, widget_event, event_cx, recipient);
+            } else {
+                panic!("Stale widget")
+            }
         }
-        v
+    }
+}
+pub fn bounds_tree<Message>(
+    widget_id: WidgetId,
+    widget_cx: &WidgetCx<Message>,
+    id_path: WidgetIdPath,
+    position: Point,
+) -> Vec<(WidgetIdPath, RoundedRect)>
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    let mut v = vec![];
+    for child in widget_cx.children(widget_id) {
+        let mut child_id_path = id_path.clone();
+        child_id_path.push(child.id);
+
+        v.push((
+            child_id_path.clone(),
+            Rect::from_origin_size(position + child.position.to_vec2(), child.size)
+                .to_rounded_rect(widget_cx.bounds_radii(child.id)),
+        ));
+        v.extend_from_slice(&bounds_tree(
+            child.id,
+            widget_cx,
+            child_id_path.clone(),
+            position + child.position.to_vec2(),
+        ))
+    }
+    v
+}
+pub fn send_hover<Message>(
+    widget_id: WidgetId,
+    widget_cx: &mut WidgetCx<Message>,
+    hover: bool,
+    mut recipient: WidgetIdPath,
+) where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    recipient.remove(0);
+    if widget_cx.set_hover(widget_id, hover) == event::Status::Ignored {
+        if let Some(&first) = recipient.first() {
+            let child = widget_cx
+                .children(widget_id)
+                .into_iter()
+                .find(|wd| wd.id == first);
+            if let Some(child) = child {
+                send_hover(child.id, widget_cx, hover, recipient);
+            }
+        }
     }
 }

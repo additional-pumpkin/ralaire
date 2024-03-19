@@ -1,8 +1,6 @@
-use crate::widget::Widget;
+use crate::widget::{Constraints, Length, Widget, WidgetCx, WidgetSize};
 use parley::{style::FontFamily, FontContext, Layout};
-use ralaire_core::{ParleyBrush, RenderCx, Size, TextLayout};
-
-use super::widget::{Constraints, Length, WidgetData, WidgetSize};
+use ralaire_core::{Affine, Color, ParleyBrush, Point, Rect, RenderCx, Size, TextLayout};
 
 #[derive(Debug)]
 pub struct Text {
@@ -44,23 +42,19 @@ impl Text {
     pub fn text(&self) -> String {
         self.text.clone()
     }
+    pub fn set_text(&mut self, text: String) {
+        self.text = text
+    }
 }
 
 impl<Message> Widget<Message> for Text
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     fn draw(&self, render_cx: &mut RenderCx) {
         render_cx.draw_text(self.layout.clone());
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
-        vec![]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        vec![]
-    }
     fn size_hint(&self) -> WidgetSize {
         let TextLayout::ParleyLayout(layout) = &self.layout;
         WidgetSize {
@@ -69,11 +63,28 @@ where
         }
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
+    fn layout(
+        &mut self,
+        _widget_cx: &mut WidgetCx<Message>,
+        constraints: Constraints,
+        font_cx: &mut FontContext,
+    ) {
         if constraints.min_size != Size::ZERO {
             self.layout_text(self.text.clone(), constraints.min_size, font_cx);
         } else {
             self.layout_text(self.text.clone(), constraints.max_size, font_cx);
         }
+    }
+
+    fn overlay(&self, render_cx: &mut RenderCx) {
+        let TextLayout::ParleyLayout(layout) = &self.layout;
+        render_cx.fill_shape(
+            Affine::default(),
+            &Rect::from_origin_size(
+                Point::ZERO,
+                Size::new(layout.width() as f64, layout.height() as f64),
+            ),
+            Color::rgba(1., 0., 0., 0.3),
+        );
     }
 }

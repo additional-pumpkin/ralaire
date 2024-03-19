@@ -1,7 +1,7 @@
 use ralaire::app::App;
 use ralaire::row;
-use ralaire::widget::{button, empty, text, Widget};
-use ralaire_core::{Color, Command};
+use ralaire::widget::{button, empty, text};
+use ralaire_core::{Color, Command, Widget};
 #[derive(Debug, Clone)]
 enum Message {
     IncrementCounter,

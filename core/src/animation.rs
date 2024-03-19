@@ -1,19 +1,18 @@
-use std::{
+use core::{
     f64::consts::PI,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicU64, Ordering},
 };
+extern crate alloc;
+use alloc::sync::Arc;
 
-use crate::Id;
+use crate::AnimationId;
 
 #[derive(Debug, Clone)]
 pub struct Animation {
-    id: Id,
+    id: AnimationId,
     value: Arc<AtomicU64>,
-    update_interval: std::time::Duration,
-    duration: std::time::Duration,
+    update_interval: core::time::Duration,
+    duration: core::time::Duration,
     direction: AnimationDirection,
     easing_curve: InternalEasingCurve,
 }
@@ -65,20 +64,20 @@ enum InternalEasingCurve {
     Custom(fn(f64) -> f64),
 }
 impl Animation {
-    pub fn new(direction: AnimationDirection, duration: std::time::Duration) -> Self {
+    pub fn new(direction: AnimationDirection, duration: core::time::Duration) -> Self {
         match direction {
             AnimationDirection::Forward => Self {
-                id: Id::unique(),
+                id: AnimationId::unique(),
                 value: Arc::new(AtomicU64::new(0)),
-                update_interval: std::time::Duration::from_millis(16),
+                update_interval: core::time::Duration::from_millis(16),
                 duration,
                 direction,
                 easing_curve: InternalEasingCurve::Predefined(EasingCurve::EaseInOutCubic),
             },
             AnimationDirection::Backward => Self {
-                id: Id::unique(),
+                id: AnimationId::unique(),
                 value: Arc::new(AtomicU64::new(duration.as_millis() as u64 / 16)),
-                update_interval: std::time::Duration::from_millis(16),
+                update_interval: core::time::Duration::from_millis(16),
                 duration,
                 direction,
                 easing_curve: InternalEasingCurve::Predefined(EasingCurve::EaseInOutCubic),
@@ -253,13 +252,13 @@ impl Animation {
             InternalEasingCurve::Custom(custom) => (custom)(x),
         }
     }
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> AnimationId {
         self.id
     }
-    pub fn update_interval(&self) -> std::time::Duration {
+    pub fn update_interval(&self) -> core::time::Duration {
         self.update_interval
     }
-    pub fn duration(&self) -> std::time::Duration {
+    pub fn duration(&self) -> core::time::Duration {
         self.duration
     }
     pub fn direction(&self) -> AnimationDirection {

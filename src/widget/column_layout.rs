@@ -1,21 +1,16 @@
-use crate::widget::Widget;
 use parley::FontContext;
+use ralaire_core::WidgetId;
 
-use super::{
-    flex_layout::{FlexBox, FlexDirection},
-    widget::{Constraints, Length, WidgetData, WidgetSize},
-};
+use super::flex_box::{FlexBox, FlexDirection};
+use crate::widget::{Constraints, Length, Widget, WidgetCx, WidgetSize};
 
 #[derive(Debug)]
 pub struct Column<Message> {
     flex: FlexBox<Message>,
 }
 
-impl<Message> Column<Message>
-where
-    Message: Clone,
-{
-    pub fn new(children: Vec<WidgetData<Message>>) -> Self {
+impl<Message> Column<Message> {
+    pub fn new(children: Vec<WidgetId>) -> Self {
         Column {
             flex: FlexBox::new(children, FlexDirection::Column),
         }
@@ -28,14 +23,10 @@ where
 
 impl<Message> Widget<Message> for Column<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<WidgetId> {
         self.flex.children()
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        self.flex.children_mut()
     }
 
     fn size_hint(&self) -> WidgetSize {
@@ -45,7 +36,12 @@ where
         }
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
-        self.flex.layout(constraints, font_cx);
+    fn layout(
+        &mut self,
+        widget_cx: &mut WidgetCx<Message>,
+        constraints: Constraints,
+        font_cx: &mut FontContext,
+    ) {
+        self.flex.layout(widget_cx, constraints, font_cx);
     }
 }

@@ -1,15 +1,12 @@
-use crate::{
-    app::AppMessage,
-    widget::{Container, Widget, WidgetData},
-};
+use crate::widget::Container;
+use crate::widget::{Constraints, Length, Widget, WidgetCx, WidgetSize};
 use parley::FontContext;
+use ralaire_core::WidgetId;
 use ralaire_core::{
     alignment,
     event::{self, mouse::MouseButton},
-    Affine, Color, Point, Rect, RenderCx, RoundedRectRadii, Size,
+    Affine, AppMessage, Color, Point, Rect, RenderCx, RoundedRectRadii, Size,
 };
-
-use super::widget::{Constraints, Length, WidgetSize};
 
 #[derive(Debug)]
 pub struct Button<Message> {
@@ -17,24 +14,25 @@ pub struct Button<Message> {
     radii: RoundedRectRadii,
     color: Color,
     on_press: Option<Message>,
-    child: WidgetData<Message>,
+    child: Container<Message>,
     hovered: bool,
 }
 
 impl<Message> Button<Message>
 where
-    Message: Clone + std::fmt::Debug + 'static,
+    Message: Clone + core::fmt::Debug + 'static,
 {
-    pub fn new(child: impl Widget<Message> + 'static) -> Self {
-        let container = Container::new(child)
+    pub fn new(child: WidgetId) -> Self {
+        let child = Container::new(child)
             .h_align(alignment::Horizontal::Center)
             .v_align(alignment::Vertical::Center);
+
         Self {
             radii: 0.0.into(),
             size: Size::new(200., 50.),
             color: Color::PINK,
             on_press: None,
-            child: WidgetData::new(container),
+            child,
             hovered: false,
         }
     }
@@ -54,29 +52,27 @@ where
 
 impl<Message> Widget<Message> for Button<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
     fn draw(&self, render_cx: &mut RenderCx) {
         // tracing::error!("self.bounds: {:?}", self.child.bounds());
         // tracing::error!("self.color: {:?}", self.color);
         render_cx.fill_shape(
             Affine::default(),
-            &Rect::from_origin_size(Point::new(0., 0.), self.child.size)
-                .to_rounded_rect(self.radii),
+            &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
             self.color,
         );
         if self.hovered {
             render_cx.fill_shape(
                 Affine::default(),
-                &Rect::from_origin_size(Point::new(0., 0.), self.child.size)
-                    .to_rounded_rect(self.radii),
+                &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
                 Color::WHITE.with_alpha_factor(0.2),
             );
         }
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
-        vec![&self.child]
+    fn children(&self) -> Vec<WidgetId> {
+        self.child.children()
     }
 
     fn size_hint(&self) -> WidgetSize {
@@ -90,13 +86,20 @@ where
         self.radii
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
-        self.child.size = constraints.max_size;
-        self.child.widget.layout(constraints, font_cx);
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        vec![&mut self.child]
+    fn layout(
+        &mut self,
+        widget_cx: &mut WidgetCx<Message>,
+        _constraints: Constraints,
+        font_cx: &mut FontContext,
+    ) {
+        self.child.layout(
+            widget_cx,
+            Constraints {
+                min_size: self.size,
+                max_size: self.size,
+            },
+            font_cx,
+        );
     }
 
     fn event(

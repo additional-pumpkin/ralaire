@@ -1,37 +1,46 @@
-use crate::widget::{Widget, WidgetData};
+use crate::widget::{Constraints, Widget, WidgetCx, WidgetSize};
 use parley::FontContext;
-use ralaire_core::RenderCx;
-
-use super::widget::{Constraints, Length, WidgetSize};
+use ralaire_core::WidgetId;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Empty;
+pub struct Empty<Message> {
+    size_hint: WidgetSize,
+    phantom_message: PhantomData<Message>,
+}
 
-impl Empty {
-    pub fn new() -> Self {
-        Self
+impl<Message> Empty<Message>
+where
+    Message: Clone + core::fmt::Debug + 'static,
+{
+    pub fn new(size_hint: WidgetSize) -> Self {
+        Self {
+            size_hint,
+            phantom_message: PhantomData,
+        }
+    }
+    pub fn set_size_hint(&mut self, size_hint: WidgetSize) {
+        self.size_hint = size_hint
     }
 }
 
-impl<Message> Widget<Message> for Empty
+impl<Message> Widget<Message> for Empty<Message>
 where
-    Message: std::fmt::Debug + Clone,
+    Message: core::fmt::Debug + Clone + 'static,
 {
-    fn draw(&self, _render_cx: &mut RenderCx) {}
+    fn children(&self) -> Vec<WidgetId> {
+        vec![]
+    }
 
     fn size_hint(&self) -> WidgetSize {
-        WidgetSize {
-            width: Length::Flexible(1),
-            height: Length::Flexible(1),
-        }
+        self.size_hint
     }
 
-    fn layout(&mut self, _constraints: Constraints, _font_cx: &mut FontContext) {}
-
-    fn children(&self) -> Vec<&WidgetData<Message>> {
-        vec![]
-    }
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
-        vec![]
+    fn layout(
+        &mut self,
+        _widget_cx: &mut WidgetCx<Message>,
+        _constraints: Constraints,
+        _font_cx: &mut FontContext,
+    ) {
     }
 }

@@ -1,6 +1,6 @@
 use ralaire::app::App;
-use ralaire::widget::{container, empty, text, Widget};
-use ralaire_core::{Command, Padding};
+use ralaire::widget::{container, empty, text};
+use ralaire_core::{Command, Padding, Widget};
 #[derive(Debug, Clone)]
 enum Message {}
 

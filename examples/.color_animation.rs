@@ -1,6 +1,6 @@
 use ralaire::app::App;
-use ralaire::widget::{button, container, empty, text, Widget};
-use ralaire_core::{Animation, AnimationDirection, Color, Command};
+use ralaire::widget::{button, container, empty, text};
+use ralaire_core::{Animation, AnimationDirection, Color, Command, Widget};
 #[derive(Debug, Clone)]
 enum Message {
     Tick,
@@ -11,7 +11,7 @@ enum Message {
 struct ColorAnimation {
     start_color: Color,
     end_color: Color,
-    duration: std::time::Duration,
+    duration: core::time::Duration,
     color: Color,
     animation: Animation,
 }
@@ -19,13 +19,14 @@ impl App for ColorAnimation {
     type Message = Message;
 
     fn new() -> Self {
-        let duration = std::time::Duration::from_secs(3);
+        let duration = core::time::Duration::from_secs(3);
         Self {
             color: Color::PINK,
             start_color: Color::PINK,
             end_color: Color::LIGHT_BLUE,
             duration,
-            animation: Animation::new(AnimationDirection::Forward, duration),
+            animation: Animation::new(AnimationDirection::Forward, duration)
+                .with_custom_easing(custom_easing),
         }
     }
 
@@ -63,9 +64,11 @@ impl App for ColorAnimation {
                 self.animation = match &self.animation.direction() {
                     AnimationDirection::Forward => {
                         Animation::new(AnimationDirection::Backward, self.duration)
+                            .with_custom_easing(custom_easing)
                     }
                     AnimationDirection::Backward => {
                         Animation::new(AnimationDirection::Forward, self.duration)
+                            .with_custom_easing(custom_easing)
                     }
                 };
                 vec![]
@@ -118,4 +121,8 @@ fn interpolate(start: Color, end: Color, factor: f64) -> Color {
                 + linear_component(start.a as f64 / 255.),
         ),
     )
+}
+
+fn custom_easing(value: f64) -> f64 {
+    -2. / (1. + value) + 2.
 }

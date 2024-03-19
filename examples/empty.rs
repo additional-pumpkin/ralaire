@@ -1,9 +1,6 @@
-use ralaire::{
-    app::App,
-    widget::{empty, Widget},
-};
+use ralaire::view::column;
+use ralaire::{app::App, view::View};
 use ralaire_core::Command;
-
 #[derive(Debug, Clone)]
 enum Message {}
 
@@ -21,12 +18,33 @@ impl App for Empty {
         "Examples - Empty"
     }
 
-    fn header(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
-    }
-
-    fn view(&self) -> impl Widget<Self::Message> + 'static {
-        empty()
+    fn view(&self) -> impl View<Self::Message> {
+        column!(
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Etiam at turpis orci. Cras non iaculis sem. Donec at pulvinar erat.
+Ut consequat varius neque at aliquam. Ut in velit volutpat, eleifend neque quis, semper dolor."
+                .to_string(),
+        )
     }
 
     fn update(&mut self, _message: Self::Message) -> Vec<Command<Self::Message>> {

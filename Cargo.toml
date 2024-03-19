@@ -5,6 +5,7 @@ edition.workspace = true
 
 
 [dependencies]
+itertools.workspace = true
 ralaire_core.workspace = true
 ralaire_vello.workspace = true
 tracing.workspace = true
@@ -35,7 +36,9 @@ winit = { git = "https://github.com/rust-windowing/winit/", default-features = f
     "wayland",
 
 ] }
-vello = { git = "https://github.com/additional-pumpkin/vello.git" }
+wgpu = "0.19.3"
+vello = { git = "https://github.com/linebender/vello" }
 parley = { git = "https://github.com/dfrg/parley" }
-peniko = { git = "https://github.com/linebender/peniko", rev = "629fc3325b016a8c98b1cd6204cb4ddf1c6b3daa" }
+peniko = "0.1.0"
 rayon = "1.8.0"
+itertools = "0.12.1"
