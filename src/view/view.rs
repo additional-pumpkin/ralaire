@@ -1,5 +1,5 @@
 use crate::widget::WidgetData;
-use ralaire_core::AsAny;
+use crate::AsAny;
 
 pub trait View<Message>: AsAny
 where

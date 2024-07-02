@@ -1,8 +1,8 @@
-use ralaire::view::{button, flex};
-use ralaire::view_seq;
+use peniko::Color;
+use ralaire::view::{button, flex, window};
 use ralaire::widget::FlexDirection;
 use ralaire::{app::App, view::View};
-use ralaire_core::{Color, Command};
+use ralaire::{view_seq, Command};
 #[derive(Debug, Clone)]
 enum Message {
     AddTask,
@@ -18,21 +18,17 @@ impl App for Counter {
         Counter { tasks: vec![] }
     }
 
-    fn title(&self) -> impl Into<String> {
-        "Examples - Counter"
-    }
-
     fn view(&self) -> impl View<Self::Message> {
         let actions = flex(
             vec![
                 button("add task".to_owned())
                     .on_press(Message::AddTask)
                     .color(Color::PINK)
-                    .radii(5.),
+                    .radius(5.),
                 button("remove task".to_owned())
                     .on_press(Message::RemoveTask)
                     .color(Color::LIGHT_BLUE)
-                    .radii(5.),
+                    .radius(5.),
             ]
             .into(),
         )
@@ -40,7 +36,7 @@ impl App for Counter {
         .spacing(30.);
         println!("number of tasks: {}", self.tasks.len());
         let tasks = flex(self.tasks.clone().into());
-        flex(view_seq!(actions, tasks)).spacing(20.)
+        window(flex(view_seq!(actions, tasks)).spacing(20.)).title("List")
     }
 
     fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {

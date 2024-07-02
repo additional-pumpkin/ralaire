@@ -1,12 +1,13 @@
 use std::marker::PhantomData;
 
-use crate::widget::{Constraints, Length, Widget, WidgetSize};
+use crate::event;
+use crate::renderer::PaintCx;
+use crate::widget::{Constraints, Widget};
 use parley::FontContext;
-use ralaire_core::{Point, RenderCx, Size};
+use peniko::kurbo::{Point, Size};
 
 use super::WidgetData;
 
-#[derive(Debug)]
 pub struct BarWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
@@ -54,16 +55,12 @@ impl<Message> Widget<Message> for BarWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn draw(&self, _render_cx: &mut RenderCx) {}
-
-    fn size_hint(&self) -> WidgetSize {
-        WidgetSize {
-            width: Length::Flexible(1),
-            height: Length::Flexible(1),
-        }
+    fn debug_name(&self) -> &str {
+        "bar"
     }
+    fn paint(&self, _paint_cx: &mut PaintCx) {}
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
+    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
         if !constraints.max_size.is_finite() {
             tracing::error!("Bar widget: max size is infinite");
         }
@@ -77,24 +74,12 @@ where
         let left_width;
         let right_width;
         if let Some(left) = &mut self.left {
-            left.widget.layout(side_constraints, font_cx);
-            if let Length::Fixed(width) = left.widget.size_hint().width {
-                left_width = width;
-            } else {
-                tracing::error!("Bar widget: child has flexible width");
-                left_width = 0.;
-            }
+            left_width = left.widget.layout(side_constraints, font_cx).width;
         } else {
             left_width = 0.;
         }
         if let Some(right) = &mut self.right {
-            right.widget.layout(side_constraints, font_cx);
-            if let Length::Fixed(width) = right.widget.size_hint().width {
-                right_width = width;
-            } else {
-                tracing::error!("Bar widget: child has flexible width");
-                right_width = 0.;
-            }
+            right_width = right.widget.layout(side_constraints, font_cx).width;
         } else {
             right_width = 0.;
         }
@@ -120,6 +105,7 @@ where
             middle.size = Size::new(middle_width, self.height);
             middle.position = Point::new(max_width, 0.);
         }
+        Size::new(constraints.max_size.width, self.height)
     }
 
     fn children(&self) -> Vec<&WidgetData<Message>> {
@@ -136,5 +122,17 @@ where
             .chain(self.middle.iter_mut())
             .chain(self.right.iter_mut())
             .collect()
+    }
+
+    fn event(
+        &mut self,
+        _event: event::WidgetEvent,
+        _event_cx: &mut event::EventCx<Message>,
+    ) -> event::Status {
+        event::Status::Ignored
+    }
+
+    fn set_hover(&mut self, _hover: bool) -> event::Status {
+        event::Status::Ignored
     }
 }

@@ -1,12 +1,12 @@
-use std::vec;
+use crate::renderer::PaintCx;
+use crate::widget::{Constraints, Widget};
+use crate::{alignment, event, Padding};
 
-use crate::widget::{Constraints, Length, Widget, WidgetSize};
 use parley::FontContext;
-use ralaire_core::{alignment, Padding, Point, Size};
+use peniko::kurbo::{Point, Size};
 
 use super::WidgetData;
 
-#[derive(Debug)]
 pub struct ContainerWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
@@ -42,25 +42,20 @@ impl<Message> Widget<Message> for ContainerWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn size_hint(&self) -> WidgetSize {
-        WidgetSize {
-            width: Length::Fixed(self.size.width),
-            height: Length::Fixed(self.size.height),
-        }
+    fn paint(&self, _paint_cx: &mut PaintCx) {}
+    fn debug_name(&self) -> &str {
+        "container"
     }
-
     fn children(&self) -> Vec<&WidgetData<Message>> {
         vec![&self.child]
     }
     fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
         vec![&mut self.child]
     }
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
+    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
         let size = constraints.max_size;
         self.size = size;
-        let child_max_size = size - Size::new(self.padding.horizontal(), self.padding.vertical());
-
-        self.child.widget.layout(
+        self.child.size = self.child.widget.layout(
             Constraints {
                 min_size: Size::ZERO,
                 max_size: size,
@@ -68,13 +63,6 @@ where
             font_cx,
         );
 
-        let WidgetSize { width, height } = self.child.widget.size_hint();
-        self.child.size = match (width, height) {
-            (Length::Fixed(w), Length::Fixed(h)) => Size::new(w, h),
-            (Length::Fixed(w), Length::Flexible(_)) => Size::new(w, child_max_size.height),
-            (Length::Flexible(_), Length::Fixed(h)) => Size::new(child_max_size.width, h),
-            (Length::Flexible(_), Length::Flexible(_)) => child_max_size,
-        };
         self.child.widget.layout(
             Constraints {
                 min_size: self.child.size,
@@ -100,5 +88,18 @@ where
             }
         };
         self.child.position = Point::new(x.max(0.), y.max(0.));
+        self.size
+    }
+
+    fn event(
+        &mut self,
+        _event: event::WidgetEvent,
+        _event_cx: &mut event::EventCx<Message>,
+    ) -> event::Status {
+        event::Status::Ignored
+    }
+
+    fn set_hover(&mut self, _hover: bool) -> event::Status {
+        event::Status::Ignored
     }
 }

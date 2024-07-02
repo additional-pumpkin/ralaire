@@ -1,6 +1,6 @@
 use crate::view::View;
 use crate::widget::{ContainerWidget, WidgetData};
-use ralaire_core::{alignment, Padding};
+use crate::{alignment, Padding};
 
 pub struct ContainerView<Message> {
     h_alignment: alignment::Horizontal,

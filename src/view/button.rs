@@ -1,7 +1,7 @@
 use crate::view::View;
 use crate::widget::{ButtonWidget, WidgetData};
-use ralaire_core::{Color, RoundedRectRadii, Size};
-
+use peniko::kurbo::{RoundedRectRadii, Size};
+use peniko::Color;
 pub struct ButtonView<Message> {
     size: Size,
     radii: RoundedRectRadii,
@@ -13,15 +13,15 @@ pub struct ButtonView<Message> {
 impl<Message> ButtonView<Message> {
     pub fn new(child: Box<dyn View<Message>>) -> Self {
         Self {
-            size: Size::new(300., 100.),
-            radii: 0.0.into(),
-            color: Color::PINK,
+            size: Size::new(60. * 1.5, 23. * 1.5),
+            radii: 10.0.into(),
+            color: Color::LIGHT_GRAY,
             on_press: None,
             child,
         }
     }
-    pub fn radii(mut self, radii: impl Into<RoundedRectRadii>) -> Self {
-        self.radii = radii.into();
+    pub fn radius(mut self, radius: f64) -> Self {
+        self.radii = radius.into();
         self
     }
     pub fn color(mut self, color: Color) -> Self {
@@ -58,7 +58,7 @@ where
         button.size = self.size;
         button.color = self.color;
         button.radii = self.radii;
-        button.on_press = self.on_press.clone();
+        button.on_press.clone_from(&self.on_press);
         widget_data.change_flags.layout = true;
         widget_data.change_flags.draw = true;
     }
@@ -69,7 +69,7 @@ where
             .downcast_ref::<ButtonView<Message>>()
             .unwrap();
         if self.size != old.size || self.color != old.color || self.radii != old.radii
-        // || new.on_press != old.on_press
+        // || self.on_press != old.on_press
         {
             self.change_widget(widget)
         }

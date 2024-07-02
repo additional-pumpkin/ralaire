@@ -1,14 +1,17 @@
-use ralaire_core::AsAny;
+use crate::AsAny;
 
 use crate::view::View;
 use crate::widget::{HeaderWidget, WidgetData};
+
+use super::window_controls::WindowControlsView;
 pub struct HeaderView<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     left: Option<Box<dyn View<Message>>>,
-    middle: Option<Box<dyn View<Message>>>,
+    pub(crate) middle: Option<Box<dyn View<Message>>>,
     right: Option<Box<dyn View<Message>>>,
+    window_controls: Box<dyn View<Message>>,
 }
 #[allow(dead_code)]
 impl<Message> HeaderView<Message>
@@ -20,6 +23,7 @@ where
             left: None,
             middle: None,
             right: None,
+            window_controls: Box::new(WindowControlsView),
         }
     }
     pub fn left(mut self, view: impl View<Message>) -> Self {
@@ -44,8 +48,14 @@ where
         let left = self.left.as_ref().map(|view| view.build_widget());
         let middle = self.middle.as_ref().map(|view| view.build_widget());
         let right = self.right.as_ref().map(|view| view.build_widget());
+        let window_controls = self.window_controls.build_widget();
 
-        WidgetData::new(Box::new(HeaderWidget::new(left, middle, right)))
+        WidgetData::new(Box::new(HeaderWidget::new(
+            left,
+            middle,
+            right,
+            window_controls,
+        )))
     }
 
     fn change_widget(&self, _widget: &mut WidgetData<Message>) {}
@@ -64,7 +74,7 @@ where
         if let Some(new_child) = &self.left {
             if let Some(old_child) = &old.left {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut header.left().as_mut().unwrap());
+                    new_child.reconciliate(old_child, header.left().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *header.left() = Some(new_widget);
@@ -81,7 +91,7 @@ where
         if let Some(new_child) = &self.middle {
             if let Some(old_child) = &old.middle {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut header.middle().as_mut().unwrap());
+                    new_child.reconciliate(old_child, header.middle().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *header.middle() = Some(new_widget);
@@ -98,7 +108,7 @@ where
         if let Some(new_child) = &self.right {
             if let Some(old_child) = &old.right {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut header.right().as_mut().unwrap());
+                    new_child.reconciliate(old_child, header.right().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *header.right() = Some(new_widget);
