@@ -1,4 +1,4 @@
-use ralaire_core::AsAny;
+use crate::AsAny;
 
 use crate::view::View;
 use crate::widget::{BarWidget, WidgetData};
@@ -63,7 +63,7 @@ where
         if let Some(new_child) = &self.left {
             if let Some(old_child) = &old.left {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut bar.left().as_mut().unwrap());
+                    new_child.reconciliate(old_child, bar.left().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *bar.left() = Some(new_widget);
@@ -80,7 +80,7 @@ where
         if let Some(new_child) = &self.middle {
             if let Some(old_child) = &old.middle {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut bar.middle().as_mut().unwrap());
+                    new_child.reconciliate(old_child, bar.middle().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *bar.middle() = Some(new_widget);
@@ -97,7 +97,7 @@ where
         if let Some(new_child) = &self.right {
             if let Some(old_child) = &old.right {
                 if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, &mut bar.right().as_mut().unwrap());
+                    new_child.reconciliate(old_child, bar.right().as_mut().unwrap());
                 } else {
                     let new_widget = new_child.build_widget();
                     *bar.right() = Some(new_widget);

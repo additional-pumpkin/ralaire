@@ -1,10 +1,8 @@
 use super::App;
 use crate::{app::window::AppWindow, view::RootView};
+use crate::{event::window_event, AnimationId, DebugLayer};
+use crate::{AnimationDirection, Command};
 use parley::FontContext;
-use ralaire_core::{
-    event::{window::Event, window_event},
-    AnimationId, DebugLayer,
-};
 use std::sync::{Arc, Mutex};
 use tracing::{error, trace};
 use winit::{
@@ -19,7 +17,6 @@ pub struct AppState<'a, A: App> {
     pub event_loop_proxy: Option<EventLoopProxy<A::Message>>,
     pub runner: tokio::runtime::Runtime,
     pub debug: DebugLayer,
-    pub title: String,
     font_cx: FontContext,
     messages: Vec<A::Message>,
     animations_running: Arc<Mutex<Vec<(AnimationId, A::Message)>>>,
@@ -41,7 +38,6 @@ where
             runner,
             debug: DebugLayer::new(),
             font_cx: FontContext::default(),
-            title: String::from(""),
             messages: vec![],
             animations_running: Arc::new(Mutex::new(vec![])),
             main_window: None,
@@ -93,44 +89,20 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
         if window.id() != window_id {
             return;
         }
-        let event = window_event(&event, window.cursor_pos());
+        let event = window_event(&event, window.cursor_pos(), window.scale_factor());
         let event = match event {
             Some(event) => event,
             None => return,
         };
-        match event {
-            Event::CloseRequested => {
-                trace!("Closing Window={window_id:?}");
-                event_loop.exit()
-            }
-            Event::Resized(size) => {
-                window.resize(size, &mut self.font_cx, &mut self.debug);
-            }
-            Event::ScaleFactorChanged(scale_factor) => {
-                trace!("Window={window_id:?} changed scale to {scale_factor}");
-            }
-            Event::RedrawRequested => {
-                self.debug.draw_started();
-                window.paint();
-                self.debug.draw_finished();
-
-                self.debug.render_started();
-                window.render(&mut self.debug);
-                self.debug.render_finished();
-                self.debug.log();
-            }
-            _ => {
-                self.debug.event_started();
-                let messages = window.event(event);
-                let proxy = self.event_loop_proxy.as_ref().unwrap().clone();
-                for message in messages {
-                    if proxy.send_event(message.clone()).is_err() {
-                        tracing::error!("Failed to send Message: {:?}", message)
-                    }
-                }
-                self.debug.event_finished();
+        self.debug.event_started();
+        let messages = window.event(event, event_loop, &mut self.font_cx, &mut self.debug);
+        let proxy = self.event_loop_proxy.as_ref().unwrap().clone();
+        for message in messages {
+            if proxy.send_event(message.clone()).is_err() {
+                tracing::error!("Failed to send Message: {:?}", message)
             }
         }
+        self.debug.event_finished();
     }
 
     fn device_event(
@@ -139,14 +111,13 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
         _device_id: DeviceId,
         _event: DeviceEvent,
     ) {
-        // trace!("Device {device_id:?} event: {event:?}");
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         trace!("Resumed the event loop");
         let main_window = self.runner.block_on(AppWindow::new(
             event_loop,
-            self.app.title().into(),
+            "TODO: Make titles work?".to_owned(),
             RootView::new(Box::new(self.app.view())),
             &mut self.debug,
         ));
@@ -166,7 +137,7 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
         self.debug.update_finished();
 
         if let Some(main_window) = &mut self.main_window {
-            main_window.set_title(self.app.title().into());
+            // main_window.set_title();
             self.debug.view_started();
             let new = RootView::new(Box::new(self.app.view()));
             new.reconciliate(&main_window.root_view, &mut main_window.root_widget);
@@ -179,7 +150,7 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
         }
         for command in commands {
             match command {
-                ralaire_core::Command::Animate {
+                Command::Animate {
                     mut animation,
                     tick_message,
                     done_message,
@@ -191,21 +162,20 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
                         .unwrap()
                         .clone()
                         .into_iter()
-                        .find(|anim| anim.0 == animation.id())
-                        .is_some();
+                        .any(|anim| anim.0 == animation.id());
                     if !already_running {
                         self.runner.spawn(async move {
                             {
                                 animations_running
                                     .lock()
                                     .unwrap()
-                                    .push((animation.id().clone(), tick_message.clone()));
+                                    .push((animation.id(), tick_message.clone()));
                             }
 
                             let mut interval = tokio::time::interval(animation.update_interval());
                             let (end_value, increment) = match animation.direction() {
-                                ralaire_core::AnimationDirection::Forward => (1., true),
-                                ralaire_core::AnimationDirection::Backward => (0., false),
+                                AnimationDirection::Forward => (1., true),
+                                AnimationDirection::Backward => (0., false),
                             };
 
                             while animation.raw_value() != end_value {

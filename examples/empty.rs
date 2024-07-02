@@ -1,5 +1,9 @@
-use ralaire::{app::App, view::View};
-use ralaire_core::Command;
+use ralaire::{
+    app::App,
+    view::{window, View},
+    Command,
+};
+
 #[derive(Debug, Clone)]
 enum Message {}
 
@@ -12,12 +16,8 @@ impl App for Empty {
         Empty
     }
 
-    fn title(&self) -> impl Into<String> {
-        "Examples - Empty"
-    }
-
     fn view(&self) -> impl View<Self::Message> {
-        "".to_owned()
+        window("".to_owned()).title("Empty")
     }
 
     fn update(&mut self, _message: Self::Message) -> Vec<Command<Self::Message>> {

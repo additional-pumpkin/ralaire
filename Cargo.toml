@@ -1,33 +1,9 @@
 [package]
 name = "ralaire"
-version.workspace = true
-edition.workspace = true
-
-[dev-dependencies]
-rand = "0.8.5"
-
-[dependencies]
-itertools.workspace = true
-ralaire_core.workspace = true
-ralaire_vello.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
-tokio.workspace = true
-winit.workspace = true
-vello.workspace = true
-parley.workspace = true
-[workspace]
-members = ["core", "vello"]
-
-[workspace.package]
 version = "0.1.0"
 edition = "2021"
 
-
-[workspace.dependencies]
-ralaire = { version = "0.1", path = "." }
-ralaire_core = { version = "0.1", path = "core" }
-ralaire_vello = { version = "0.1", path = "vello" }
+[dependencies]
 bitflags = "2.4.1"
 tokio = { version = "1.35.1", features = ["full"] }
 futures = "0.3.30"
@@ -43,8 +19,11 @@ winit = { version = "0.30.0", default-features = false, features = [
 
 ] }
 wgpu = "0.20.0"
-vello = { git = "https://github.com/linebender/vello" }
+vello = { path = "../vello/vello" }
+vello_svg = { path = "../vello_svg" }
 parley = { git = "https://github.com/dfrg/parley" }
 peniko = "0.1.0"
 rayon = "1.8.0"
 itertools = "0.13.0"
+image = "0.25.1"
+rand = "0.8.5"

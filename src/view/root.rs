@@ -4,29 +4,30 @@ pub struct RootView<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    content: Box<dyn View<Message>>,
+    child: Box<dyn View<Message>>,
 }
 
 impl<Message> RootView<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    pub fn new(content: Box<dyn View<Message>>) -> Self {
-        Self { content }
+    pub fn new(child: Box<dyn View<Message>>) -> Self {
+        Self {  child }
     }
 
     pub fn build_widget(&self) -> RootWidget<Message> {
-        let content_data = self.content.build_widget();
-        RootWidget::new(content_data)
+        let child = self.child.build_widget();
+        RootWidget::new(child)
     }
 
     pub fn reconciliate(&self, old: &RootView<Message>, root_widget: &mut RootWidget<Message>) {
-        if self.content.as_any().type_id() == old.content.as_any().type_id() {
-            self.content
-                .reconciliate(&old.content, root_widget.content());
+        if self.child.as_any().type_id() == old.child.as_any().type_id() {
+            self.child
+                .reconciliate(&old.child, root_widget.child());
         } else {
-            let widget = self.content.build_widget();
-            *root_widget.content() = widget;
+            let widget = self.child.build_widget();
+            *root_widget.child() = widget;
         }
     }
 }
+

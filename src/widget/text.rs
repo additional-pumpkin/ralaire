@@ -1,8 +1,9 @@
-use crate::widget::{Constraints, Length, Widget, WidgetSize};
+use crate::event;
+use crate::renderer::{PaintCx, TextLayout};
+use crate::widget::{Constraints, Widget};
 use parley::{style::FontFamily, FontContext, Layout};
-use ralaire_core::{Brush, Color, RenderCx, Size, TextLayout};
-
-#[derive(Debug)]
+use peniko::kurbo::Size;
+use peniko::{Brush, Color};
 pub struct TextWidget {
     text: String,
     layout: TextLayout,
@@ -31,10 +32,10 @@ impl TextWidget {
                 FontFamily::Named("Noto Sans"),
             ]),
         ));
-        layout_builder.push_default(&parley::style::StyleProperty::FontSize(36.));
-        // layout_builder.push_default(&parley::style::StyleProperty::FontFeatures(
-        //     parley::style::FontSettings::Source("frac on"),
-        // ));
+        layout_builder.push_default(&parley::style::StyleProperty::FontSize(14.6666666));
+        layout_builder.push_default(&parley::style::StyleProperty::Brush(Brush::Solid(
+            Color::BLACK,
+        )));
         // layout_builder.push_default(&parley::style::StyleProperty::FontStyle(
         //     parley::style::FontStyle::Italic,
         // ));
@@ -57,37 +58,22 @@ impl<Message> Widget<Message> for TextWidget
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn draw(&self, render_cx: &mut RenderCx) {
-        render_cx.draw_text(self.layout.clone());
+    fn debug_name(&self) -> &str {
+        "text"
+    }
+    fn paint(&self, paint_cx: &mut PaintCx) {
+        paint_cx.draw_text(self.layout.clone());
     }
 
-    fn size_hint(&self) -> WidgetSize {
-        let TextLayout::ParleyLayout(layout) = &self.layout;
-        WidgetSize {
-            width: Length::Fixed(layout.width() as f64),
-            height: Length::Fixed(layout.height() as f64),
-        }
-    }
-
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) {
+    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
         if constraints.min_size != Size::ZERO {
             self.layout_text(self.text.clone(), constraints.min_size, font_cx);
         } else {
             self.layout_text(self.text.clone(), constraints.max_size, font_cx);
         }
+        let TextLayout::ParleyLayout(layout) = &self.layout;
+        Size::new(layout.width() as f64, layout.height() as f64)
     }
-
-    // fn overlay(&self, render_cx: &mut RenderCx) {
-    //     let TextLayout::ParleyLayout(layout) = &self.layout;
-    //     render_cx.fill_shape(
-    //         Affine::default(),
-    //         &Rect::from_origin_size(
-    //             Point::ZERO,
-    //             Size::new(layout.width() as f64, layout.height() as f64),
-    //         ),
-    //         Color::rgba(1., 0., 0., 0.3),
-    //     );
-    // }
 
     fn children(&self) -> Vec<&super::WidgetData<Message>> {
         vec![]
@@ -95,5 +81,17 @@ where
 
     fn children_mut(&mut self) -> Vec<&mut super::WidgetData<Message>> {
         vec![]
+    }
+
+    fn event(
+        &mut self,
+        _event: event::WidgetEvent,
+        _event_cx: &mut event::EventCx<Message>,
+    ) -> event::Status {
+        event::Status::Ignored
+    }
+
+    fn set_hover(&mut self, _hover: bool) -> event::Status {
+        event::Status::Ignored
     }
 }

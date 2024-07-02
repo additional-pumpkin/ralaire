@@ -1,29 +1,36 @@
+use std::sync::Arc;
+
+use crate::event::window::Event;
+use crate::renderer::{RenderCommand, RenderCx, RenderEngine};
 use crate::view::RootView;
 use crate::widget::Constraints;
 use crate::widget::{RootWidget, Widget};
-use parley::FontContext;
-use ralaire_core::{
+use crate::{
     event::{self, EventCx},
-    AppMessage, DebugLayer, InternalMessage, Point, RenderCommand, RenderCx, Renderer, RoundedRect,
-    Shape, WidgetIdPath, WindowSize,
+    DebugLayer, InternalMessage, WidgetIdPath, WindowSize,
 };
-use ralaire_vello::RenderEngine;
+use parley::FontContext;
+use peniko::kurbo::{Point, Rect, Size};
+use tracing::trace;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 pub struct AppWindow<'a, Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    size: WindowSize,
-    event_cx: EventCx<AppMessage<Message>>,
+    window: Arc<Window>,
+    physical_size: WindowSize,
+    logical_size: Size,
+    scale_factor: f64,
+    event_cx: EventCx<Message>,
     pub root_widget: RootWidget<Message>,
     pub root_view: RootView<Message>,
     cursor_pos: Point,
     focused_widget: WidgetIdPath,
     hovered_widget: WidgetIdPath,
-    bounds_tree: Vec<(WidgetIdPath, RoundedRect)>,
+    bounds_tree: Vec<(WidgetIdPath, Rect)>,
     render_engine: RenderEngine<'a>,
-    command_lists: Vec<Vec<RenderCommand>>,
+    render_commands: Vec<RenderCommand>,
 }
 
 impl<'a, Message> AppWindow<'a, Message>
@@ -42,36 +49,41 @@ where
             .with_transparent(true)
             .with_min_inner_size(winit::dpi::PhysicalSize::new(200, 200))
             .with_title(title);
-        let window = event_loop.create_window(window_attributes).unwrap();
-        let size: WindowSize = window.inner_size().into();
-        let root_widget: RootWidget<Message> = root_view.build_widget();
-        let root_widget_id = root_widget.id;
+        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let physical_size: WindowSize = window.inner_size().into();
+        let logical_size = physical_size.into();
+        let mut root_widget: RootWidget<Message> = root_view.build_widget();
+        let root_child_id = root_widget.child().id;
         let bounds_tree = root_widget.bounds_tree(Vec::new(), Point::ZERO);
 
         debug.startup_finished();
         AppWindow {
-            size,
+            window: window.clone(),
+            physical_size,
+            logical_size,
+            scale_factor: 1.0,
             event_cx: EventCx::new(),
             root_widget,
             root_view,
             cursor_pos: Point::ZERO,
-            focused_widget: vec![root_widget_id],
-            hovered_widget: vec![root_widget_id],
+            // FIXME: This shouldn't be necessary
+            focused_widget: vec![root_child_id],
+            hovered_widget: vec![root_child_id],
             bounds_tree,
-            render_engine: RenderEngine::new(window, size).await,
-            command_lists: vec![],
+            render_engine: RenderEngine::new(window.clone(), physical_size).await,
+            render_commands: vec![],
         }
     }
     pub fn id(&self) -> winit::window::WindowId {
-        self.render_engine.window().id()
-    }
-
-    pub fn set_title(&mut self, title: String) {
-        self.render_engine.window().set_title(title.as_str())
+        self.window.id()
     }
 
     pub fn set_root_view(&mut self, root_view: RootView<Message>) {
         self.root_view = root_view
+    }
+
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 
     pub fn cursor_pos(&self) -> Point {
@@ -82,144 +94,151 @@ where
         self.cursor_pos = cursor_pos
     }
 
-    pub fn messages(&mut self) -> Vec<Message> {
-        let mut internal_messages: Vec<AppMessage<Message>> = vec![];
-        let messages = self
-            .event_cx
-            .messages()
-            .into_iter()
-            .filter_map(|message| match message {
-                AppMessage::Internal(message) => {
-                    internal_messages.push(AppMessage::Internal(message));
-                    None
-                }
-                AppMessage::User(message) => Some(message),
-            })
-            .collect();
-        let _: Vec<()> = internal_messages
-            .into_iter()
-            .map(|message| self.event_cx.add_message(message))
-            .collect();
-        messages
-    }
-
     pub fn request_redraw(&self) {
-        self.render_engine.window().request_redraw();
+        self.window.request_redraw();
     }
-
     pub fn resize(
         &mut self,
         new_size: impl Into<WindowSize>,
         font_cx: &mut FontContext,
         debug: &mut DebugLayer,
     ) {
-        let size: WindowSize = new_size.into();
-        tracing::warn!("Resize requested, new_size: {size:?}");
-        self.size = size;
+        self.physical_size = new_size.into();
+        self.logical_size = Size::new(
+            self.physical_size.width as f64 / self.scale_factor,
+            self.physical_size.height as f64 / self.scale_factor,
+        );
         debug.layout_started();
-
         // TODO: do layout
         self.root_widget.layout(
             Constraints {
-                min_size: size.into(),
-                max_size: size.into(),
+                min_size: self.logical_size,
+                max_size: self.logical_size,
             },
             font_cx,
         );
         debug.layout_finished();
-        self.render_engine.resize(self.size);
+        self.render_engine.resize(self.physical_size);
     }
     pub fn layout(&mut self, font_cx: &mut FontContext) {
         self.root_widget.layout(
-                Constraints {
-                    min_size: self.size.into(),
-                    max_size: self.size.into(),
-                },
-                font_cx,
-            );
+            Constraints {
+                min_size: self.logical_size.into(),
+                max_size: self.logical_size.into(),
+            },
+            font_cx,
+        );
     }
     pub fn render(&mut self, debug: &mut DebugLayer) {
-        self.render_engine.render(self.command_lists.clone(), debug)
+        self.render_engine
+            .render(self.render_commands.clone(), self.scale_factor, debug)
     }
     pub fn paint(&mut self) {
         let mut render_cx = RenderCx::new();
         self.root_widget.render(&mut render_cx);
-        self.command_lists = render_cx.get_command_lists();
+        self.render_commands.clone_from(&render_cx.command_stack);
     }
-    pub fn event(&mut self, event: event::window::Event) -> Vec<Message> {
-        self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
-        let mut changed_hover = false;
-        if let event::window::Event::Mouse(mouse_event) = event.clone() {
-            if let event::mouse::Event::Move { position, .. } = mouse_event {
-                self.set_cursor_pos(Point::new(position.x, position.y));
-                let previous = self.hovered_widget.clone();
-                let _: Vec<()> = self
-                    .bounds_tree
-                    .iter()
-                    .map(|(id_path, bounds)| {
-                        if bounds.contains(position) {
-                            self.hovered_widget = id_path.clone();
+    pub fn event(
+        &mut self,
+        event: event::window::Event,
+        event_loop: &ActiveEventLoop,
+        font_cx: &mut FontContext,
+        debug: &mut DebugLayer,
+    ) -> Vec<Message> {
+        // eprintln!("{:#?}", self.root_widget.child());
+        match event {
+            Event::CloseRequested => {
+                trace!("Closing Window={:?}", self.window.id());
+                event_loop.exit()
+            }
+            Event::Resized(size) => {
+                self.resize(size, font_cx, debug);
+            }
+            Event::ScaleFactorChanged(scale_factor) => self.scale_factor = scale_factor,
+            Event::RedrawRequested => {
+                debug.draw_started();
+                self.paint();
+                debug.draw_finished();
+
+                debug.render_started();
+                self.render(debug);
+                debug.render_finished();
+                debug.log();
+            }
+            _ => {
+                self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
+                let mut changed_hover = false;
+                if let event::window::Event::Mouse(mouse_event) = event.clone() {
+                    if let event::mouse::Event::Move { position, .. } = mouse_event {
+                        self.set_cursor_pos(position);
+                        let previous = self.hovered_widget.clone();
+                        let _: Vec<()> = self
+                            .bounds_tree
+                            .iter()
+                            .map(|(id_path, bounds)| {
+                                if bounds.contains(position) {
+                                    self.hovered_widget.clone_from(id_path);
+                                }
+                            })
+                            .collect();
+                        if previous != self.hovered_widget {
+                            changed_hover = true;
+                            self.root_widget.send_hover(false, previous);
+                            self.window.request_redraw();
                         }
-                    })
-                    .collect();
-                if previous != self.hovered_widget {
-                    changed_hover = true;
-                    self.root_widget.send_hover(false, previous);
-                    self.render_engine.window().request_redraw();
+                        // debug!("Hovered widget: {:?}", self.hovered_widget);
+                    }
+
+                    if let event::mouse::Event::Press {
+                        position,
+                        button: _,
+                    } = mouse_event
+                    {
+                        // FIXME: This is just not great
+                        let _: Vec<()> = self
+                            .bounds_tree
+                            .iter()
+                            .map(|(id_path, bounds)| {
+                                if bounds.contains(position) {
+                                    self.focused_widget.clone_from(id_path);
+                                }
+                            })
+                            .collect();
+                    }
                 }
-                // tracing::debug!("Hovered widget: {:?}", self.hovered_widget);
-            }
-
-            if let event::mouse::Event::Press {
-                position,
-                button: _,
-            } = mouse_event
-            {
-                let _: Vec<()> = self
-                    .bounds_tree
-                    .iter()
-                    .map(|(id_path, bounds)| {
-                        if bounds.contains(position) {
-                            self.focused_widget = id_path.clone();
-                        }
-                    })
-                    .collect();
+                if let Some(widget_event) =
+                    event::widget_event_from_window_event(event, Point::ZERO)
+                {
+                    self.root_widget.send_event(
+                        widget_event,
+                        &mut self.event_cx,
+                        self.focused_widget.clone(),
+                    );
+                    if changed_hover {
+                        self.root_widget
+                            .send_hover(true, self.hovered_widget.clone());
+                    }
+                }
+                self.window.set_cursor(self.event_cx.cursor());
             }
         }
-        if let Some(widget_event) = event::widget_event_from_window_event(event, Point::ZERO) {
-            self.root_widget.send_event(
-                widget_event,
-                &mut self.event_cx,
-                self.focused_widget.clone(),
-            );
-            if changed_hover {
-                self.root_widget
-                    .send_hover(true, self.hovered_widget.clone());
-            }
-        }
-        self.render_engine
-            .window()
-            .set_cursor(winit::window::Cursor::Icon(self.event_cx.cursor().into()));
-        let messages = self.messages();
 
-        let internal_messages = self.event_cx.messages();
-
-        for message in internal_messages {
+        for message in self.event_cx.drain_internal_messages() {
             match message {
-                AppMessage::Internal(internal_mesage) => match internal_mesage {
-                    InternalMessage::DragResizeWindow(direction) => {
-                        let _ = self
-                            .render_engine
-                            .window()
-                            .drag_resize_window(direction.into());
-                    }
-                    InternalMessage::DragMoveWindow => {
-                        let _ = self.render_engine.window().drag_window();
-                    }
-                },
-                AppMessage::User(_) => unreachable!(),
+                InternalMessage::DragResizeWindow(direction) => {
+                    let _ = self.window.drag_resize_window(direction);
+                }
+                InternalMessage::DragMoveWindow => {
+                    let _ = self.window.drag_window();
+                }
+                InternalMessage::MinimiseWindow => self.window.set_minimized(true),
+                InternalMessage::MaximiseWindow => {
+                    self.window.set_maximized(!self.window.is_maximized())
+                }
+                InternalMessage::CloseWindow => event_loop.exit(),
+                InternalMessage::TitleChanged(title) => self.window.set_title(title.as_str()),
             }
         }
-        messages
+        self.event_cx.drain_user_messages().collect()
     }
 }

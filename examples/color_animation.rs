@@ -1,8 +1,9 @@
+use peniko::Color;
 use ralaire::{
     app::App,
-    view::{button, container, View},
+    view::{button, container, window, View},
+    Animation, AnimationDirection, Command,
 };
-use ralaire_core::{Animation, AnimationDirection, Color, Command};
 #[derive(Debug, Clone)]
 enum Message {
     Tick,
@@ -14,7 +15,6 @@ struct ColorAnimation {
     end_color: Color,
     duration: core::time::Duration,
     color: Color,
-    color_name: String,
     animation: Animation,
 }
 impl App for ColorAnimation {
@@ -26,24 +26,20 @@ impl App for ColorAnimation {
             color: Color::PINK,
             start_color: Color::PINK,
             end_color: Color::LIGHT_BLUE,
-            color_name: "Pink".to_owned(),
             duration,
             animation: Animation::new(AnimationDirection::Forward, duration)
                 .with_custom_easing(custom_easing),
         }
     }
 
-    fn title(&self) -> impl Into<String> {
-        "Examples - ColorAnimation"
-    }
-
     fn view(&self) -> impl View<Self::Message> {
-        container(
-            button(format!("Animated button ({})", self.color_name))
+        window(container(
+            button("Animated button".to_owned())
                 .color(self.color)
-                .radii(10.)
+                .radius(10.)
                 .on_press(Message::StartAnimation),
-        )
+        ))
+        .title("Color Animation")
     }
 
     fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
@@ -62,12 +58,10 @@ impl App for ColorAnimation {
             Message::FinishedAnimation => {
                 self.animation = match &self.animation.direction() {
                     AnimationDirection::Forward => {
-                        self.color_name = "Blue".to_owned();
                         Animation::new(AnimationDirection::Backward, self.duration)
                             .with_custom_easing(custom_easing)
                     }
                     AnimationDirection::Backward => {
-                        self.color_name = "Pink".to_owned();
                         Animation::new(AnimationDirection::Forward, self.duration)
                             .with_custom_easing(custom_easing)
                     }

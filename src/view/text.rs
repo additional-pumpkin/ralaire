@@ -8,14 +8,14 @@ where
         WidgetData::new(Box::new(TextWidget::new(self.clone())))
     }
 
-    fn change_widget(&self, widget_data: &mut WidgetData<Message>) {
-        (*widget_data.widget)
+    fn change_widget(&self, widget: &mut WidgetData<Message>) {
+        (*widget.widget)
             .as_any_mut()
             .downcast_mut::<TextWidget>()
             .unwrap()
             .set_text(self.clone());
-        widget_data.change_flags.layout = true;
-        widget_data.change_flags.draw = true;
+        widget.change_flags.layout = true;
+        widget.change_flags.draw = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
