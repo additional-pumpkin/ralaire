@@ -9,10 +9,10 @@ use alloc::vec::Vec;
 pub struct WidgetId(NonZeroU64);
 
 pub type WidgetIdPath = Vec<WidgetId>;
-static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 impl WidgetId {
     pub fn unique() -> WidgetId {
+        static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
         WidgetId(NonZeroU64::new(WIDGET_ID_COUNTER.fetch_add(1, Ordering::Relaxed)).unwrap())
     }
 
@@ -39,10 +39,9 @@ impl core::fmt::Debug for WidgetId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
 pub struct AnimationId(NonZeroU64);
 
-static ANIMATION_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
-
 impl AnimationId {
     pub fn unique() -> AnimationId {
+        static ANIMATION_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
         AnimationId(NonZeroU64::new(ANIMATION_ID_COUNTER.fetch_add(1, Ordering::Relaxed)).unwrap())
     }
 

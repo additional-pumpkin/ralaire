@@ -1,7 +1,7 @@
 use std::vec::Drain;
 
-use peniko::kurbo::Point;
-use peniko::kurbo::Vec2;
+use vello::peniko::kurbo::Point;
+use vello::peniko::kurbo::Vec2;
 use winit::window::CursorIcon;
 pub mod keyboard;
 pub mod mouse;

@@ -79,7 +79,7 @@ where
         flex_box.main_axis = flex_axis;
         flex_box.direction_flipped = direction_flipped;
         flex_box.spacing = self.spacing;
-        widget.change_flags.layout = true;
+        widget.change_flags.needs_layout = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget_data: &mut WidgetData<Message>) {

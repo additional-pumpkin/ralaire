@@ -1,12 +1,12 @@
 use super::WidgetData;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use crate::{
     event::{self, EventCx, WidgetEvent},
     WidgetIdPath,
 };
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
+use vello::peniko::kurbo::{Point, Size};
+
 pub struct RootWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
@@ -25,6 +25,7 @@ where
         &mut self.child
     }
 
+    // TODO: Events should be passed starting at the end of the path
     pub fn send_event(
         &mut self,
         mut event: WidgetEvent,
@@ -69,13 +70,6 @@ impl<Message> Widget<Message> for RootWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn debug_name(&self) -> &str {
-        "root"
-    }
-    fn paint(&self, _render_cx: &mut PaintCx) {}
-    // fn render(&self, render_cx: &mut RenderCx) {
-    //     self.child.widget.render(render_cx);
-    // }
     fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
         let size = constraints.max_size;
         self.child.widget.layout(
@@ -96,6 +90,12 @@ where
     ) -> event::Status {
         event::Status::Ignored
     }
+    fn set_hover(&mut self, _hover: bool) -> event::Status {
+        event::Status::Ignored
+    }
+    fn paint(&self, scene: &mut vello::Scene) {
+        self.child.widget.paint(scene)
+    }
     fn children(&self) -> Vec<&WidgetData<Message>> {
         vec![&self.child]
     }
@@ -103,7 +103,7 @@ where
         vec![&mut self.child]
     }
 
-    fn set_hover(&mut self, _hover: bool) -> event::Status {
-        event::Status::Ignored
+    fn debug_name(&self) -> &str {
+        "root"
     }
 }

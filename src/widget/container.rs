@@ -1,9 +1,8 @@
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use crate::{alignment, event, Padding};
 
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
+use vello::peniko::kurbo::{Affine, Point, Size};
 
 use super::WidgetData;
 
@@ -42,7 +41,12 @@ impl<Message> Widget<Message> for ContainerWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn paint(&self, _paint_cx: &mut PaintCx) {}
+    fn paint(&self, scene: &mut vello::Scene) {
+        let mut fragment = vello::Scene::new();
+        self.child.widget.paint(&mut fragment);
+        let affine = Affine::translate(self.child.position.to_vec2());
+        scene.append(&fragment, Some(affine));
+    }
     fn debug_name(&self) -> &str {
         "container"
     }
@@ -58,19 +62,15 @@ where
         self.child.size = self.child.widget.layout(
             Constraints {
                 min_size: Size::ZERO,
-                max_size: size,
+                max_size: Size::new(
+                    size.width - self.padding.horizontal(),
+                    size.height - self.padding.vertical(),
+                ),
             },
             font_cx,
         );
 
-        self.child.widget.layout(
-            Constraints {
-                min_size: self.child.size,
-                max_size: self.child.size,
-            },
-            font_cx,
-        );
-        let padding = self.padding.fit(self.child.size, self.size);
+        let padding = self.padding;
         let x = match self.h_alignment {
             alignment::Horizontal::Left => padding.left,
             alignment::Horizontal::Center => {

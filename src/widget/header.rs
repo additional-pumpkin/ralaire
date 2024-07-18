@@ -1,12 +1,11 @@
 use super::WidgetData;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use crate::{
     event::{self, mouse::MouseButton, WidgetEvent},
     InternalMessage,
 };
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
+use vello::peniko::kurbo::{Affine, Point, Size};
 const WINDOW_CONTROLS_WIDTH: f64 = 100.;
 const HEADER_HEIGHT: f64 = 46.;
 
@@ -59,11 +58,13 @@ where
     fn debug_name(&self) -> &str {
         "header"
     }
-    fn paint(&self, _paint_cx: &mut PaintCx) {
-        // paint_cx.fill_shape(
-        //     &Rect::from_origin_size(Point::ZERO, Size::new(self.width, HEADER_HEIGHT)),
-        //     Color::rgb8(220, 220, 220),
-        // )
+    fn paint(&self, scene: &mut vello::Scene) {
+        for child in self.children() {
+            let mut fragment = vello::Scene::new();
+            child.widget.paint(&mut fragment);
+            let affine = Affine::translate(child.position.to_vec2());
+            scene.append(&fragment, Some(affine));
+        }
     }
 
     fn children(&self) -> Vec<&WidgetData<Message>> {

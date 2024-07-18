@@ -1,9 +1,8 @@
 use super::WidgetData;
 use crate::event;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
+use vello::peniko::kurbo::{Affine, Point, Size};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexDirection {
@@ -74,7 +73,14 @@ where
     fn debug_name(&self) -> &str {
         "flexbox"
     }
-    fn paint(&self, _render_cx: &mut PaintCx) {}
+    fn paint(&self, scene: &mut vello::Scene) {
+        for child in self.children() {
+            let mut fragment = vello::Scene::new();
+            child.widget.paint(&mut fragment);
+            let affine = Affine::translate(child.position.to_vec2());
+            scene.append(&fragment, Some(affine));
+        }
+    }
 
     fn children(&self) -> Vec<&WidgetData<Message>> {
         self.children.iter().map(|child| &child.widget).collect()

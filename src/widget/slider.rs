@@ -3,11 +3,11 @@ use crate::event::{
     self,
     mouse::{self, MouseButton},
 };
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use parley::FontContext;
-use peniko::kurbo::{Circle, Point, Rect, Size};
-use peniko::Color;
+use vello::kurbo::Affine;
+use vello::peniko::kurbo::{Circle, Point, Rect, Size};
+use vello::peniko::{Color, Fill};
 
 const SLIDER_HEIGHT: f64 = 50.;
 pub struct SliderWidget<Message>
@@ -44,29 +44,38 @@ where
     fn debug_name(&self) -> &str {
         "slider"
     }
-    fn paint(&self, paint_cx: &mut PaintCx) {
-        paint_cx.fill_shape(
+    fn paint(&self, scene: &mut vello::Scene) {
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            Color::LIGHT_GRAY,
+            None,
             &Rect::from_origin_size(
                 Point::new(0., 0.),
                 Size::new(self.length, SLIDER_HEIGHT / 2.),
             )
             .to_rounded_rect(SLIDER_HEIGHT / 4.),
-            Color::LIGHT_GRAY,
         );
-        paint_cx.fill_shape(
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            Color::GRAY,
+            None,
             &Circle::new(
                 Point::new(self.value * self.length, SLIDER_HEIGHT / 4.),
                 SLIDER_HEIGHT / 2.,
             ),
-            Color::GRAY,
         );
-        if self.hovered {
-            paint_cx.fill_shape(
+        if self.is_dragging {
+            scene.fill(
+                Fill::NonZero,
+                Affine::default(),
+                Color::BLACK.with_alpha_factor(0.3),
+                None,
                 &Circle::new(
                     Point::new(self.value * self.length, SLIDER_HEIGHT / 4.),
                     SLIDER_HEIGHT / 2.,
                 ),
-                Color::BLACK.with_alpha_factor(0.1),
             );
         }
     }
@@ -94,7 +103,6 @@ where
                 mouse::Event::Move { position } => {
                     if self.is_dragging {
                         // Changing self.value is done by the user
-                        dbg!();
                         event_cx.push_user_message((self.on_change)(position.x / self.length));
                     }
                     return event::Status::Captured;
@@ -104,8 +112,8 @@ where
                 }
                 event::mouse::Event::Press { position, button } => {
                     if button == MouseButton::Left {
-                        if position.x > dbg!(self.value * self.length - SLIDER_HEIGHT / 2.)
-                            && position.x < dbg!(self.value * self.length + SLIDER_HEIGHT / 2.)
+                        if position.x > self.value * self.length - SLIDER_HEIGHT / 2.
+                            && position.x < self.value * self.length + SLIDER_HEIGHT / 2.
                         {
                             self.is_dragging = true;
                         }

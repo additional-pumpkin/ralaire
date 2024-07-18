@@ -1,10 +1,10 @@
 use super::App;
+use crate::command::Task;
 use crate::{app::window::AppWindow, view::RootView};
 use crate::{event::window_event, AnimationId, DebugLayer};
 use crate::{AnimationDirection, Command};
 use parley::FontContext;
 use std::sync::{Arc, Mutex};
-use tracing::{error, trace};
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
@@ -12,6 +12,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     window::WindowId,
 };
+
 pub struct AppState<'a, A: App> {
     pub app: A,
     pub event_loop_proxy: Option<EventLoopProxy<A::Message>>,
@@ -62,20 +63,20 @@ where
 }
 
 impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, message: A::Message) {
-        trace!("User message: {message:?}");
-        self.messages.push(message);
-        // let animations_running = self.animations_running.clone();
-        // let animations_running = animations_running.lock().unwrap();
-        // if animations_running
-        //     .clone()
-        //     .into_iter()
-        //     .find(|anim| core::mem::discriminant(&anim.1) == std::mem::discriminant(&message))
-        //     .is_some()
-        // {
-        // }
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        tracing::trace!("Resumed the event loop");
+        let main_window = self.runner.block_on(AppWindow::new(
+            event_loop,
+            "TODO: Make titles work?".to_owned(),
+            RootView::new(Box::new(self.app.view())),
+            &mut self.debug,
+        ));
+        self.main_window = Some(main_window);
     }
-
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, message: A::Message) {
+        tracing::trace!("User message: {message:?}");
+        self.messages.push(message);
+    }
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -104,35 +105,15 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
         }
         self.debug.event_finished();
     }
-
-    fn device_event(
-        &mut self,
-        _event_loop: &ActiveEventLoop,
-        _device_id: DeviceId,
-        _event: DeviceEvent,
-    ) {
-    }
-
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        trace!("Resumed the event loop");
-        let main_window = self.runner.block_on(AppWindow::new(
-            event_loop,
-            "TODO: Make titles work?".to_owned(),
-            RootView::new(Box::new(self.app.view())),
-            &mut self.debug,
-        ));
-        self.main_window = Some(main_window);
-    }
-
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         if self.messages.is_empty() {
             return;
         }
-        trace!("messages: {:?}", self.messages.clone());
+        tracing::trace!("messages: {:?}", self.messages.clone());
         let mut commands = vec![];
         self.debug.update_started();
         for message in self.messages.drain(..) {
-            commands.extend(self.app.update(message));
+            commands.push(self.app.update(message));
         }
         self.debug.update_finished();
 
@@ -149,56 +130,59 @@ impl<'a, A: App> ApplicationHandler<A::Message> for AppState<'a, A> {
             main_window.request_redraw();
         }
         for command in commands {
-            match command {
-                Command::Animate {
-                    mut animation,
-                    tick_message,
-                    done_message,
-                } => {
-                    let animations_running = self.animations_running.clone();
-                    let proxy = self.event_loop_proxy.as_ref().unwrap().clone();
-                    let already_running = animations_running
-                        .lock()
-                        .unwrap()
-                        .clone()
-                        .into_iter()
-                        .any(|anim| anim.0 == animation.id());
-                    if !already_running {
-                        self.runner.spawn(async move {
-                            {
-                                animations_running
-                                    .lock()
-                                    .unwrap()
-                                    .push((animation.id(), tick_message.clone()));
-                            }
-
-                            let mut interval = tokio::time::interval(animation.update_interval());
-                            let (end_value, increment) = match animation.direction() {
-                                AnimationDirection::Forward => (1., true),
-                                AnimationDirection::Backward => (0., false),
-                            };
-
-                            while animation.raw_value() != end_value {
-                                interval.tick().await;
-                                if increment {
-                                    animation.increment();
-                                } else {
-                                    animation.decrement()
+            for task in command.tasks {
+                match task {
+                    Task::Animate {
+                        mut animation,
+                        tick_message,
+                        done_message,
+                    } => {
+                        let animations_running = self.animations_running.clone();
+                        let proxy = self.event_loop_proxy.as_ref().unwrap().clone();
+                        let already_running = animations_running
+                            .lock()
+                            .unwrap()
+                            .clone()
+                            .into_iter()
+                            .any(|anim| anim.0 == animation.id());
+                        if !already_running {
+                            self.runner.spawn(async move {
+                                {
+                                    animations_running
+                                        .lock()
+                                        .unwrap()
+                                        .push((animation.id(), tick_message.clone()));
                                 }
-                                if proxy.send_event(tick_message.clone()).is_err() {
-                                    error!("Failed to send animation tick message")
+
+                                let mut interval =
+                                    tokio::time::interval(animation.update_interval());
+                                let (end_value, increment) = match animation.direction() {
+                                    AnimationDirection::Forward => (1., true),
+                                    AnimationDirection::Backward => (0., false),
+                                };
+
+                                while animation.raw_value() != end_value {
+                                    interval.tick().await;
+                                    if increment {
+                                        animation.increment();
+                                    } else {
+                                        animation.decrement()
+                                    }
+                                    if proxy.send_event(tick_message.clone()).is_err() {
+                                        tracing::error!("Failed to send animation tick message")
+                                    }
                                 }
-                            }
-                            {
-                                animations_running.lock().unwrap().pop();
-                            }
-                            if proxy.send_event(done_message.clone()).is_err() {
-                                error!("Failed to send animation done message")
-                            }
-                        });
+                                {
+                                    animations_running.lock().unwrap().pop();
+                                }
+                                if proxy.send_event(done_message.clone()).is_err() {
+                                    tracing::error!("Failed to send animation done message")
+                                }
+                            });
+                        }
                     }
                 }
-            };
+            }
         }
     }
 

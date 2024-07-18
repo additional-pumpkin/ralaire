@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::renderer::PaintCx;
+use super::WidgetData;
 use crate::widget::ContainerWidget;
 use crate::widget::{Constraints, Widget};
 use crate::InternalMessage;
@@ -9,10 +9,9 @@ use crate::{
     event::{self, mouse::MouseButton},
 };
 use parley::FontContext;
-use peniko::kurbo::{Circle, Point, Size};
-use peniko::Color;
-
-use super::WidgetData;
+use vello::kurbo::Affine;
+use vello::peniko::kurbo::{Circle, Point, Size};
+use vello::peniko::{BlendMode, Color, Compose, Fill, Mix};
 
 const SIZE: Size = Size::new(24., 24.);
 const CENTER: Point = Point::new(SIZE.width / 2., SIZE.height / 2.);
@@ -54,14 +53,45 @@ where
     fn debug_name(&self) -> &str {
         "window_button"
     }
-    fn paint(&self, paint_cx: &mut PaintCx) {
-        paint_cx.fill_shape(&Circle::new(CENTER, RADIUS), Color::LIGHT_GRAY);
+    fn paint(&self, scene: &mut vello::Scene) {
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            Color::rgb8(51, 51, 51),
+            None,
+            &Circle::new(CENTER, RADIUS),
+        );
         if self.hovered {
-            paint_cx.fill_shape(
+            scene.fill(
+                Fill::NonZero,
+                Affine::default(),
+                Color::WHITE.with_alpha_factor(0.1),
+                None,
                 &Circle::new(CENTER, RADIUS),
-                Color::BLACK.with_alpha_factor(0.1),
             );
         }
+        scene.push_layer(
+            BlendMode::new(Mix::Normal, Compose::SrcOver),
+            1.0,
+            Affine::default(),
+            &SIZE.to_rect(),
+        );
+        self.child.paint(scene);
+        scene.push_layer(
+            BlendMode::new(Mix::Normal, Compose::SrcAtop),
+            1.0,
+            Affine::default(),
+            &SIZE.to_rect(),
+        );
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            Color::WHITE,
+            None,
+            &SIZE.to_rect(),
+        );
+        scene.pop_layer();
+        scene.pop_layer();
     }
 
     fn children(&self) -> Vec<&WidgetData<Message>> {

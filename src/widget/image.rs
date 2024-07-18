@@ -1,13 +1,14 @@
 use crate::event;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use image::io::Reader as ImageReader;
 use parley::FontContext;
-use peniko::kurbo::Size;
-use peniko::{Blob, Image};
+use vello::peniko::kurbo::Size;
+use vello::peniko::{Blob, Image};
 use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::Arc;
+use vello::kurbo::Affine;
+
 pub struct ImageWidget<Message> {
     image: Image,
     size: Size,
@@ -52,8 +53,8 @@ impl<Message> Widget<Message> for ImageWidget<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn paint(&self, paint_cx: &mut PaintCx) {
-        paint_cx.draw_image(self.image.clone())
+    fn paint(&self, scene: &mut vello::Scene) {
+        scene.draw_image(&self.image.clone(), Affine::default());
     }
 
     fn debug_name(&self) -> &str {

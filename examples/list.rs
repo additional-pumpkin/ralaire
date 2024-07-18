@@ -1,4 +1,4 @@
-use peniko::Color;
+use vello::peniko::Color;
 use ralaire::view::{button, flex, window};
 use ralaire::widget::FlexDirection;
 use ralaire::{app::App, view::View};
@@ -39,14 +39,14 @@ impl App for Counter {
         window(flex(view_seq!(actions, tasks)).spacing(20.)).title("List")
     }
 
-    fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::AddTask => self.tasks.push("task".to_owned()),
             Message::RemoveTask => {
                 self.tasks.pop();
             }
         }
-        vec![]
+        Command::none()
     }
 }
 fn main() -> ralaire::Result {

@@ -1,7 +1,6 @@
 mod bar;
 mod button;
 mod container;
-mod empty;
 mod flex;
 mod header;
 mod image;
@@ -16,7 +15,6 @@ mod window_controls;
 pub use bar::BarWidget;
 pub use button::ButtonWidget;
 pub use container::ContainerWidget;
-pub use empty::EmptyWidget;
 pub use flex::Child;
 pub use flex::FlexAxis;
 pub use flex::FlexBoxWidget;

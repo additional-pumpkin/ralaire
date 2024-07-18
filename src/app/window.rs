@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::event::window::Event;
-use crate::renderer::{RenderCommand, RenderCx, RenderEngine};
+use crate::renderer::RenderEngine;
 use crate::view::RootView;
 use crate::widget::Constraints;
 use crate::widget::{RootWidget, Widget};
@@ -10,8 +10,7 @@ use crate::{
     DebugLayer, InternalMessage, WidgetIdPath, WindowSize,
 };
 use parley::FontContext;
-use peniko::kurbo::{Point, Rect, Size};
-use tracing::trace;
+use vello::peniko::kurbo::{Point, Rect, Size};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 pub struct AppWindow<'a, Message>
@@ -30,7 +29,6 @@ where
     hovered_widget: WidgetIdPath,
     bounds_tree: Vec<(WidgetIdPath, Rect)>,
     render_engine: RenderEngine<'a>,
-    render_commands: Vec<RenderCommand>,
 }
 
 impl<'a, Message> AppWindow<'a, Message>
@@ -71,7 +69,6 @@ where
             hovered_widget: vec![root_child_id],
             bounds_tree,
             render_engine: RenderEngine::new(window.clone(), physical_size).await,
-            render_commands: vec![],
         }
     }
     pub fn id(&self) -> winit::window::WindowId {
@@ -129,18 +126,18 @@ where
             font_cx,
         );
     }
-    pub fn render(&mut self, debug: &mut DebugLayer) {
-        self.render_engine
-            .render(self.render_commands.clone(), self.scale_factor, debug)
-    }
-    pub fn paint(&mut self) {
-        let mut render_cx = RenderCx::new();
-        self.root_widget.render(&mut render_cx);
-        self.render_commands.clone_from(&render_cx.command_stack);
+    pub fn paint(&mut self, debug: &mut DebugLayer) {
+        let mut scene = vello::Scene::new();
+        debug.draw_started();
+        self.root_widget.paint(&mut scene);
+        debug.draw_finished();
+        debug.render_started();
+        self.render_engine.render(&scene, self.scale_factor, debug);
+        debug.render_finished();
     }
     pub fn event(
         &mut self,
-        event: event::window::Event,
+        event: Event,
         event_loop: &ActiveEventLoop,
         font_cx: &mut FontContext,
         debug: &mut DebugLayer,
@@ -148,27 +145,22 @@ where
         // eprintln!("{:#?}", self.root_widget.child());
         match event {
             Event::CloseRequested => {
-                trace!("Closing Window={:?}", self.window.id());
+                tracing::trace!("Closing Window={:?}", self.window.id());
                 event_loop.exit()
             }
             Event::Resized(size) => {
+                tracing::trace!("{:?}", size);
                 self.resize(size, font_cx, debug);
             }
             Event::ScaleFactorChanged(scale_factor) => self.scale_factor = scale_factor,
             Event::RedrawRequested => {
-                debug.draw_started();
-                self.paint();
-                debug.draw_finished();
-
-                debug.render_started();
-                self.render(debug);
-                debug.render_finished();
+                self.paint(debug);
                 debug.log();
             }
             _ => {
                 self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
                 let mut changed_hover = false;
-                if let event::window::Event::Mouse(mouse_event) = event.clone() {
+                if let Event::Mouse(mouse_event) = event.clone() {
                     if let event::mouse::Event::Move { position, .. } = mouse_event {
                         self.set_cursor_pos(position);
                         let previous = self.hovered_widget.clone();

@@ -1,10 +1,9 @@
 use std::marker::PhantomData;
 
 use crate::event;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
+use vello::peniko::kurbo::{Affine, Point, Size};
 
 use super::WidgetData;
 
@@ -58,7 +57,14 @@ where
     fn debug_name(&self) -> &str {
         "bar"
     }
-    fn paint(&self, _paint_cx: &mut PaintCx) {}
+    fn paint(&self, scene: &mut vello::Scene) {
+        for child in self.children() {
+            let mut fragment = vello::Scene::new();
+            child.widget.paint(&mut fragment);
+            let affine = Affine::translate(child.position.to_vec2());
+            scene.append(&fragment, Some(affine));
+        }
+    }
 
     fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
         if !constraints.max_size.is_finite() {

@@ -1,7 +1,7 @@
 use crate::view::View;
 use crate::widget::{ButtonWidget, WidgetData};
-use peniko::kurbo::{RoundedRectRadii, Size};
-use peniko::Color;
+use vello::peniko::kurbo::{RoundedRectRadii, Size};
+use vello::peniko::Color;
 pub struct ButtonView<Message> {
     size: Size,
     radii: RoundedRectRadii,
@@ -55,12 +55,14 @@ where
             .as_any_mut()
             .downcast_mut::<ButtonWidget<Message>>()
             .unwrap();
-        button.size = self.size;
+        if button.size != self.size {
+            button.size = self.size;
+            widget_data.change_flags.needs_layout = true;
+        }
         button.color = self.color;
         button.radii = self.radii;
+        widget_data.change_flags.needs_repaint = true;
         button.on_press.clone_from(&self.on_press);
-        widget_data.change_flags.layout = true;
-        widget_data.change_flags.draw = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {

@@ -1,4 +1,4 @@
-use peniko::Color;
+use vello::peniko::Color;
 use ralaire::{
     app::App,
     view::{button, container, window, View},
@@ -42,19 +42,17 @@ impl App for ColorAnimation {
         .title("Color Animation")
     }
 
-    fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::Tick => {
                 self.color = interpolate(self.start_color, self.end_color, self.animation.value());
-                vec![]
+                Command::none()
             }
-            Message::StartAnimation => {
-                vec![Command::Animate {
-                    animation: self.animation.clone(),
-                    tick_message: Message::Tick,
-                    done_message: Message::FinishedAnimation,
-                }]
-            }
+            Message::StartAnimation => Command::animation(
+                self.animation.clone(),
+                Message::Tick,
+                Message::FinishedAnimation,
+            ),
             Message::FinishedAnimation => {
                 self.animation = match &self.animation.direction() {
                     AnimationDirection::Forward => {
@@ -66,7 +64,7 @@ impl App for ColorAnimation {
                             .with_custom_easing(custom_easing)
                     }
                 };
-                vec![]
+                Command::none()
             }
         }
     }

@@ -1,17 +1,7 @@
 // Copyright 2019 Héctor Ramón, Iced contributors
-use peniko::kurbo::Size;
+use vello::peniko::kurbo::Size;
 
 /// An amount of space to pad for each side of a box
-///
-/// You can leverage the `From` trait to build [`Padding`] conveniently:
-///
-/// ```
-/// # use ralaire_core::Padding;
-/// #
-/// let padding = Padding::from(20.);              // 20px on all sides
-/// let padding = Padding::from([10., 20.]);        // top/bottom, left/right
-/// let padding = Padding::from([5., 10., 15., 20.]); // top, right, bottom, left
-/// ```
 #[derive(Debug, Copy, Clone)]
 pub struct Padding {
     /// Top padding
@@ -51,20 +41,6 @@ impl Padding {
     /// Returns the total amount of horizontal [`Padding`].
     pub fn horizontal(self) -> f64 {
         self.left + self.right
-    }
-
-    /// Fits the [`Padding`] between the provided `inner` and `outer` [`Size`].
-    pub fn fit(self, inner: Size, outer: Size) -> Self {
-        let available = (outer - inner).clamp(Size::ZERO, outer);
-        let new_top = self.top.min(available.height / 2.);
-        let new_left = self.left.min(available.width / 2.);
-
-        Padding {
-            top: new_top,
-            bottom: self.bottom.min(available.height - new_top),
-            left: new_left,
-            right: self.right.min(available.width - new_left),
-        }
     }
 }
 

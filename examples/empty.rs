@@ -20,8 +20,8 @@ impl App for Empty {
         window("".to_owned()).title("Empty")
     }
 
-    fn update(&mut self, _message: Self::Message) -> Vec<Command<Self::Message>> {
-        vec![]
+    fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
+        Command::none()
     }
 }
 

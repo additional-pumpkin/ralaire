@@ -1,4 +1,3 @@
-use crate::renderer::PaintCx;
 use crate::widget::ContainerWidget;
 use crate::widget::{Constraints, Widget};
 use crate::{
@@ -6,8 +5,8 @@ use crate::{
     event::{self, mouse::MouseButton},
 };
 use parley::FontContext;
-use peniko::kurbo::{Point, Rect, RoundedRectRadii, Size};
-use peniko::Color;
+use vello::peniko::kurbo::{Affine, Point, Rect, RoundedRectRadii, Size};
+use vello::peniko::{Color, Fill};
 
 use super::WidgetData;
 
@@ -58,17 +57,24 @@ where
     fn debug_name(&self) -> &str {
         "button"
     }
-    fn paint(&self, paint_cx: &mut PaintCx) {
-        paint_cx.fill_shape(
-            &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
+    fn paint(&self, scene: &mut vello::Scene) {
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
             self.color,
+            None,
+            &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
         );
         if self.hovered {
-            paint_cx.fill_shape(
-                &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
+            scene.fill(
+                Fill::NonZero,
+                Affine::default(),
                 Color::BLACK.with_alpha_factor(0.1),
+                None,
+                &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
             );
         }
+        self.child.paint(scene);
     }
 
     fn children(&self) -> Vec<&WidgetData<Message>> {

@@ -1,4 +1,4 @@
-use peniko::kurbo::Size;
+use vello::peniko::kurbo::Size;
 
 pub type WindowId = usize;
 

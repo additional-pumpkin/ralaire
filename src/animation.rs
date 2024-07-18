@@ -1,11 +1,9 @@
+use crate::AnimationId;
 use core::{
     f64::consts::PI,
     sync::atomic::{AtomicU64, Ordering},
 };
-extern crate alloc;
-use alloc::sync::Arc;
-
-use crate::AnimationId;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Animation {
@@ -160,14 +158,14 @@ impl Animation {
                     if x == 0. {
                         0.
                     } else {
-                        (2_f64).powf(10. * x - 10.)
+                        2_f64.powf(10. * x - 10.)
                     }
                 }
                 EasingCurve::EaseOutExpo => {
                     if x == 1. {
                         1.
                     } else {
-                        1. - (2_f64).powf(-10. * x)
+                        1. - 2_f64.powf(-10. * x)
                     }
                 }
                 EasingCurve::EaseInOutExpo => {
@@ -176,9 +174,9 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else if x < 0.5 {
-                        (2_f64).powf(20. * x - 10.) / 2.
+                        2_f64.powf(20. * x - 10.) / 2.
                     } else {
-                        (2. - (2_f64).powf(-20. * x + 10.)) / 2.
+                        (2. - 2_f64.powf(-20. * x + 10.)) / 2.
                     }
                 }
                 EasingCurve::EaseInCirc => 1. - (1. - x * x).sqrt(),
@@ -210,7 +208,7 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else {
-                        -(2_f64).powf(10. * x - 10.) * ((x * 10. - 10.75).sin() * 2. * PI / 3.)
+                        -2_f64.powf(10. * x - 10.) * ((x * 10. - 10.75).sin() * 2. * PI / 3.)
                     }
                 }
                 EasingCurve::EaseOutElastic => {
@@ -219,7 +217,7 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else {
-                        (2_f64).powf(-10. * x) * ((x * 10. - 0.75) * 2. * PI / 3.).sin() + 1.
+                        2_f64.powf(-10. * x) * ((x * 10. - 0.75) * 2. * PI / 3.).sin() + 1.
                     }
                 }
                 EasingCurve::EaseInOutElastic => {
@@ -228,12 +226,10 @@ impl Animation {
                     } else if x == 1. {
                         1.
                     } else if x < 0.5 {
-                        -((2_f64).powf(20. * x - 10.)
-                            * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
+                        -(2_f64.powf(20. * x - 10.) * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
                             / 2.
                     } else {
-                        ((2_f64).powf(-20. * x + 10.)
-                            * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
+                        (2_f64.powf(-20. * x + 10.) * ((20. * x - 11.125) * 2. * PI / 4.5).sin())
                             / 2.
                             + 1.
                     }
@@ -248,7 +244,7 @@ impl Animation {
                     }
                 }
             },
-            InternalEasingCurve::Custom(custom) => (custom)(x),
+            InternalEasingCurve::Custom(custom) => custom(x),
         }
     }
     pub fn id(&self) -> AnimationId {

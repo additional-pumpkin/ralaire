@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bitflags = "2.4.1"
-tokio = { version = "1.35.1", features = ["full"] }
+bitflags = "2.6.0"
+tokio = { version = "1.38.0", features = ["full"] }
 futures = "0.3.30"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = [
@@ -13,16 +13,14 @@ tracing-subscriber = { version = "0.3.18", features = [
     "fmt",
     "std",
 ] }
-winit = { version = "0.30.0", default-features = false, features = [
+winit = { version = "0.30.3", default-features = false, features = [
     "rwh_06",
     "wayland",
-
 ] }
 wgpu = "0.20.0"
 vello = { path = "../vello/vello" }
 vello_svg = { path = "../vello_svg" }
 parley = { git = "https://github.com/dfrg/parley" }
-peniko = "0.1.0"
 rayon = "1.8.0"
 itertools = "0.13.0"
 image = "0.25.1"

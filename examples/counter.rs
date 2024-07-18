@@ -18,7 +18,7 @@ impl App for Counter {
     }
 
     fn view(&self) -> impl View<Self::Message> {
-        window(container(
+        window(
             flex(view_seq!(
                 button("increment".to_owned())
                     .on_press(Message::IncrementCounter)
@@ -30,16 +30,16 @@ impl App for Counter {
             ))
             .direction(FlexDirection::Row)
             .spacing(30.),
-        ))
+        )
         .title("Counter")
     }
 
-    fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::IncrementCounter => self.counter += 1,
             Message::DecrementCounter => self.counter -= 1,
         }
-        vec![]
+        Command::none()
     }
 }
 fn main() -> ralaire::Result {

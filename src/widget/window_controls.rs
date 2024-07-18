@@ -1,10 +1,9 @@
-use crate::renderer::PaintCx;
+use super::{window_button::WindowButtonWidget, ContainerWidget, SvgWidget, WidgetData};
 use crate::widget::{Constraints, Widget};
 use crate::{alignment, event, InternalMessage};
 use parley::FontContext;
-use peniko::kurbo::{Point, Size};
-
-use super::{window_button::WindowButtonWidget, ContainerWidget, SvgWidget, WidgetData};
+use vello::peniko::kurbo::{Affine, Point, Size};
+use vello::peniko::Color;
 
 const WINDOW_CONTROLS_WIDTH: f64 = 100.;
 const WINDOW_CONTROLS_HEIGHT: f64 = 46.;
@@ -96,7 +95,14 @@ where
         }
         Size::new(WINDOW_CONTROLS_WIDTH, WINDOW_CONTROLS_HEIGHT)
     }
-    fn paint(&self, _paint_cx: &mut PaintCx) {}
+    fn paint(&self, scene: &mut vello::Scene) {
+        for child in self.children() {
+            let mut fragment = vello::Scene::new();
+            child.widget.paint(&mut fragment);
+            let affine = Affine::translate(child.position.to_vec2());
+            scene.append(&fragment, Some(affine));
+        }
+    }
     fn children(&self) -> Vec<&super::WidgetData<Message>> {
         self.buttons.iter().collect()
     }
@@ -108,18 +114,6 @@ where
         _event: event::WidgetEvent,
         _event_cx: &mut event::EventCx<Message>,
     ) -> event::Status {
-        // if let WidgetEvent::Mouse(event::mouse::Event::Press { position, button }) = event {
-        //     if button == MouseButton::Left {
-        //         if position.x < WINDOW_CONTROLS_WIDTH / 3. {
-        //             event_cx.push_internal_message(InternalMessage::MinimiseWindow)
-        //         } else if position.x < WINDOW_CONTROLS_WIDTH * 2. / 3. {
-        //             event_cx.push_internal_message(InternalMessage::MaximiseWindow)
-        //         } else {
-        //             event_cx.push_internal_message(InternalMessage::CloseWindow)
-        //         }
-        //         return event::Status::Captured;
-        //     }
-        // }
         event::Status::Ignored
     }
 

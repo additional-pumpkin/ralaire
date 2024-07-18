@@ -195,10 +195,10 @@ impl TimeBuffer {
         sum / self.size.max(1) as u32
     }
     fn max(&self) -> Duration {
-        *self.contents
+        *self
+            .contents
             .iter()
             .max()
             .unwrap_or(&Duration::from_secs(0))
-
     }
 }

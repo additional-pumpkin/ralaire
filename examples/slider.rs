@@ -24,11 +24,11 @@ impl App for Slider {
         window(container(slider(self.value, Message::SliderChanged))).title("Text")
     }
 
-    fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::SliderChanged(value) => self.value = value,
         }
-        vec![]
+        Command::none()
     }
 }
 fn main() -> ralaire::Result {

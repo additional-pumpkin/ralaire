@@ -111,6 +111,6 @@ where
         }
 
         bar.set_height(self.height);
-        widget.change_flags.layout = true; // TODO: figure out when this is needed
+        widget.change_flags.needs_layout = true; // TODO: figure out when this is needed
     }
 }

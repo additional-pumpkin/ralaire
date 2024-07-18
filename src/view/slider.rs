@@ -37,8 +37,7 @@ where
             .unwrap();
         slider.on_change = Box::new(self.on_change.clone());
         slider.value = self.value;
-        widget_data.change_flags.layout = true;
-        widget_data.change_flags.draw = true;
+        widget_data.change_flags.needs_repaint = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {

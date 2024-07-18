@@ -1,13 +1,12 @@
 use super::WidgetData;
 use crate::event::mouse::MouseButton;
 use crate::event::WidgetEvent;
-use crate::renderer::PaintCx;
 use crate::widget::{Constraints, Widget};
 use crate::{event, InternalMessage, WidgetId};
 use core::f64::consts::PI;
 use parley::FontContext;
-use peniko::kurbo::{Affine, Circle, Point, Rect, RoundedRect, Shape, Size};
-use peniko::{BlendMode, Brush, Color, Gradient};
+use vello::peniko::kurbo::{Affine, Circle, Point, Rect, RoundedRect, Shape, Size};
+use vello::peniko::{BlendMode, Brush, Color, Fill, Gradient};
 use winit::window::ResizeDirection;
 const CORNER_RADIUS: f64 = 12.;
 const SHADOW_WIDTH: f64 = 15.;
@@ -82,7 +81,7 @@ where
     }
     // TODO: Support SSD on wayland
     // TODO: Figure out what to do for other platforms
-    fn paint(&self, paint_cx: &mut PaintCx) {
+    fn paint(&self, scene: &mut vello::Scene) {
         // Normally shadows are implemented with blur, vello doesn't support it yet so
         // here we approximate the gaussian function exp(-8x^2) by using 11 color points
         // and linear interpolation between the SHADOW_COLOR and SHADOW_FADE_COLOR
@@ -340,15 +339,10 @@ where
             ),
         ];
         // top shadow
-        paint_cx.fill_shape(
-            &Rect::from_origin_size(
-                Point::new(SHADOW_WIDTH + CORNER_RADIUS, 0.),
-                Size::new(
-                    self.size.width - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
-                    SHADOW_WIDTH + CORNER_RADIUS,
-                ),
-            ),
-            Brush::Gradient(
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_linear(
                     Point::new(
                         (self.size.width - (SHADOW_WIDTH + CORNER_RADIUS) * 2.) / 2.,
@@ -361,20 +355,20 @@ where
                 )
                 .with_stops(shadow_color_stops),
             ),
-        );
-        // bottom shadow
-        paint_cx.fill_shape(
+            None,
             &Rect::from_origin_size(
-                Point::new(
-                    SHADOW_WIDTH + CORNER_RADIUS,
-                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
-                ),
+                Point::new(SHADOW_WIDTH + CORNER_RADIUS, 0.),
                 Size::new(
                     self.size.width - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
                     SHADOW_WIDTH + CORNER_RADIUS,
                 ),
             ),
-            Brush::Gradient(
+        );
+        // bottom shadow
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_linear(
                     Point::new(
                         (self.size.width - (SHADOW_WIDTH + CORNER_RADIUS) * 2.) / 2.,
@@ -387,20 +381,23 @@ where
                 )
                 .with_stops(shadow_color_stops),
             ),
-        );
-        // right shadow
-        paint_cx.fill_shape(
+            None,
             &Rect::from_origin_size(
                 Point::new(
-                    self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
                     SHADOW_WIDTH + CORNER_RADIUS,
+                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
                 ),
                 Size::new(
+                    self.size.width - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
                     SHADOW_WIDTH + CORNER_RADIUS,
-                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
                 ),
             ),
-            Brush::Gradient(
+        );
+        // right shadow
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_linear(
                     Point::new(
                         self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
@@ -413,17 +410,23 @@ where
                 )
                 .with_stops(shadow_color_stops),
             ),
-        );
-        // left shadow
-        paint_cx.fill_shape(
+            None,
             &Rect::from_origin_size(
-                Point::new(0., SHADOW_WIDTH + CORNER_RADIUS),
+                Point::new(
+                    self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
+                    SHADOW_WIDTH + CORNER_RADIUS,
+                ),
                 Size::new(
                     SHADOW_WIDTH + CORNER_RADIUS,
                     self.size.height - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
                 ),
             ),
-            Brush::Gradient(
+        );
+        // left shadow
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_linear(
                     Point::new(
                         SHADOW_WIDTH + CORNER_RADIUS,
@@ -436,27 +439,51 @@ where
                 )
                 .with_stops(shadow_color_stops),
             ),
+            None,
+            &Rect::from_origin_size(
+                Point::new(0., SHADOW_WIDTH + CORNER_RADIUS),
+                Size::new(
+                    SHADOW_WIDTH + CORNER_RADIUS,
+                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS) * 2.,
+                ),
+            ),
         );
 
         // corner shadows
 
         // top left
-        paint_cx.fill_shape(
-            &Circle::new(
-                Point::new(SHADOW_WIDTH + CORNER_RADIUS, SHADOW_WIDTH + CORNER_RADIUS),
-                SHADOW_WIDTH + CORNER_RADIUS,
-            )
-            .segment(0., PI, 1. / 2. * PI),
-            Brush::Gradient(
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_radial(
                     Point::new(SHADOW_WIDTH + CORNER_RADIUS, SHADOW_WIDTH + CORNER_RADIUS),
                     (SHADOW_WIDTH + CORNER_RADIUS) as f32,
                 )
                 .with_stops(shadow_color_stops),
             ),
+            None,
+            &Circle::new(
+                Point::new(SHADOW_WIDTH + CORNER_RADIUS, SHADOW_WIDTH + CORNER_RADIUS),
+                SHADOW_WIDTH + CORNER_RADIUS,
+            )
+            .segment(0., PI, 1. / 2. * PI),
         );
         // top right
-        paint_cx.fill_shape(
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
+                Gradient::new_radial(
+                    Point::new(
+                        self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
+                        SHADOW_WIDTH + CORNER_RADIUS,
+                    ),
+                    (SHADOW_WIDTH + CORNER_RADIUS) as f32,
+                )
+                .with_stops(shadow_color_stops),
+            ),
+            None,
             &Circle::new(
                 Point::new(
                     self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
@@ -465,19 +492,22 @@ where
                 SHADOW_WIDTH + CORNER_RADIUS,
             )
             .segment(0., 3. / 2. * PI, 1. / 2. * PI),
-            Brush::Gradient(
+        );
+        // bottom right
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_radial(
                     Point::new(
                         self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
-                        SHADOW_WIDTH + CORNER_RADIUS,
+                        self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
                     ),
                     (SHADOW_WIDTH + CORNER_RADIUS) as f32,
                 )
                 .with_stops(shadow_color_stops),
             ),
-        );
-        // bottom right
-        paint_cx.fill_shape(
+            None,
             &Circle::new(
                 Point::new(
                     self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
@@ -486,28 +516,12 @@ where
                 SHADOW_WIDTH + CORNER_RADIUS,
             )
             .segment(0., 0., 1. / 2. * PI),
-            Brush::Gradient(
-                Gradient::new_radial(
-                    Point::new(
-                        self.size.width - (SHADOW_WIDTH + CORNER_RADIUS),
-                        self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
-                    ),
-                    (SHADOW_WIDTH + CORNER_RADIUS) as f32,
-                )
-                .with_stops(shadow_color_stops),
-            ),
         );
         // bottom left
-        paint_cx.fill_shape(
-            &Circle::new(
-                Point::new(
-                    SHADOW_WIDTH + CORNER_RADIUS,
-                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
-                ),
-                SHADOW_WIDTH + CORNER_RADIUS,
-            )
-            .segment(0., 1. / 2. * PI, 1. / 2. * PI),
-            Brush::Gradient(
+        scene.fill(
+            Fill::NonZero,
+            Affine::default(),
+            &Brush::Gradient(
                 Gradient::new_radial(
                     Point::new(
                         SHADOW_WIDTH + CORNER_RADIUS,
@@ -517,14 +531,34 @@ where
                 )
                 .with_stops(shadow_color_stops),
             ),
+            None,
+            &Circle::new(
+                Point::new(
+                    SHADOW_WIDTH + CORNER_RADIUS,
+                    self.size.height - (SHADOW_WIDTH + CORNER_RADIUS),
+                ),
+                SHADOW_WIDTH + CORNER_RADIUS,
+            )
+            .segment(0., 1. / 2. * PI, 1. / 2. * PI),
         );
 
-        paint_cx.fill_shape(&self.bounds, Color::WHITE);
-        paint_cx.push_layer(
-            BlendMode::default(),
+        scene.fill(
+            Fill::NonZero,
             Affine::default(),
-            self.bounds.to_path(0.1),
+            Color::WHITE,
+            None,
+            &self.bounds,
         );
+        scene.push_layer(BlendMode::default(), 1.0, Affine::default(), &self.bounds);
+        let mut header_fragment = vello::Scene::new();
+        self.header.widget.paint(&mut header_fragment);
+        let affine = Affine::translate(self.header.position.to_vec2());
+        scene.append(&header_fragment, Some(affine));
+        let mut content_fragment = vello::Scene::new();
+        self.content.widget.paint(&mut content_fragment);
+        let affine = Affine::translate(self.content.position.to_vec2());
+        scene.append(&content_fragment, Some(affine));
+        scene.pop_layer();
     }
 
     fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {

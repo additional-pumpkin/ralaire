@@ -1,7 +1,6 @@
-use crate::renderer::{PaintCx, RenderCommand, RenderCx};
 use crate::{event, AsAny, WidgetId, WidgetIdPath};
 use parley::FontContext;
-use peniko::kurbo::{Point, Rect, Size};
+use vello::peniko::kurbo::{Point, Rect, Size};
 pub trait Widget<Message>: AsAny
 where
     Message: Clone + core::fmt::Debug + 'static,
@@ -13,39 +12,10 @@ where
         _event_cx: &mut event::EventCx<Message>,
     ) -> event::Status;
     fn set_hover(&mut self, _hover: bool) -> event::Status;
-    fn paint(&self, paint_cx: &mut PaintCx);
+    fn paint(&self, scene: &mut vello::Scene);
     fn children(&self) -> Vec<&WidgetData<Message>>;
     fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>>;
     fn debug_name(&self) -> &str;
-    /// Used by the library to render child widgets and calls draw
-    fn render(&self, render_cx: &mut RenderCx) {
-        let mut paint_cx = PaintCx::new();
-        self.paint(&mut paint_cx);
-        let mut pushed_layers = 0;
-        for command in &paint_cx.command_stack {
-            match command {
-                RenderCommand::PushLayer {
-                    blend: _,
-                    transform: _,
-                    clip: _,
-                } => pushed_layers += 1,
-                RenderCommand::PopLayer => pushed_layers -= 1,
-                _ => {}
-            }
-        }
-        assert!(pushed_layers >= 0);
-        render_cx.command_stack.extend(paint_cx.command_stack);
-        for child in self.children().iter() {
-            let bounds = Rect::from_origin_size(child.position, child.size);
-            render_cx.push_widget(child.id, bounds);
-            child.widget.render(render_cx);
-            render_cx.pop_widget();
-        }
-        for _ in 0..pushed_layers {
-            render_cx.command_stack.push(RenderCommand::PopLayer)
-        }
-    }
-    // TODO: Events should be passed starting at the end of the path
     fn bounds_tree(&self, id_path: WidgetIdPath, position: Point) -> Vec<(WidgetIdPath, Rect)> {
         let mut v = vec![];
         for child in self.children() {
@@ -125,6 +95,6 @@ pub struct Constraints {
 
 #[derive(Debug, Default)]
 pub struct ChangeFlags {
-    pub layout: bool,
-    pub draw: bool,
+    pub needs_layout: bool,
+    pub needs_repaint: bool,
 }

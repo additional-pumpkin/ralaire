@@ -121,6 +121,6 @@ where
             *header.right() = None;
         }
 
-        widget.change_flags.layout = true; // TODO: figure out when this is needed
+        widget.change_flags.needs_layout = true; // TODO: figure out when this is needed
     }
 }

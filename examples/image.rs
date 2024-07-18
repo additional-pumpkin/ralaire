@@ -20,8 +20,8 @@ impl App for Image {
         window(container(image("assets/Ghostscript_Tiger.svg".into()))).title("Image")
     }
 
-    fn update(&mut self, _message: Self::Message) -> Vec<Command<Self::Message>> {
-        vec![]
+    fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
+        Command::none()
     }
 }
 

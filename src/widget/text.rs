@@ -1,19 +1,18 @@
 use crate::event;
-use crate::renderer::{PaintCx, TextLayout};
 use crate::widget::{Constraints, Widget};
 use parley::{style::FontFamily, FontContext, Layout};
-use peniko::kurbo::Size;
-use peniko::{Brush, Color};
+use vello::peniko::kurbo::{Affine, Size};
+use vello::peniko::{Brush, Color};
 pub struct TextWidget {
     text: String,
-    layout: TextLayout,
+    layout: Layout<Brush>,
 }
 
 impl TextWidget {
     pub fn new(text: String) -> Self {
         Self {
             text: text.clone(),
-            layout: TextLayout::ParleyLayout(Layout::new()),
+            layout: Layout::new(),
         }
     }
 
@@ -26,8 +25,6 @@ impl TextWidget {
         )));
         layout_builder.push_default(&parley::style::StyleProperty::FontStack(
             parley::style::FontStack::List(&[
-                // FontFamily::Named("Coromorant Garamont"),
-                // FontFamily::Named("Nimbus Roman"),
                 FontFamily::Named("Inter"),
                 FontFamily::Named("Noto Sans"),
             ]),
@@ -44,7 +41,7 @@ impl TextWidget {
         // ));
         let mut layout = layout_builder.build();
         layout.break_all_lines(Some(size.width as f32), parley::layout::Alignment::Start);
-        self.layout = TextLayout::ParleyLayout(layout);
+        self.layout = layout;
     }
     pub fn text(&self) -> String {
         self.text.clone()
@@ -61,8 +58,45 @@ where
     fn debug_name(&self) -> &str {
         "text"
     }
-    fn paint(&self, paint_cx: &mut PaintCx) {
-        paint_cx.draw_text(self.layout.clone());
+    fn paint(&self, scene: &mut vello::Scene) {
+        for line in self.layout.lines() {
+            for glyph_run in line.glyph_runs() {
+                let mut x = glyph_run.offset();
+                let y = glyph_run.baseline();
+                let run = glyph_run.run();
+                let font = run.font();
+                let font_size = run.font_size();
+                let style = glyph_run.style();
+                let synthesis = run.synthesis();
+                let glyph_xform = synthesis
+                    .skew()
+                    .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0));
+                let coords = run
+                    .normalized_coords()
+                    .iter()
+                    .map(|coord| vello::skrifa::instance::NormalizedCoord::from_bits(*coord))
+                    .collect::<Vec<_>>();
+                scene
+                    .draw_glyphs(font)
+                    .brush(&style.brush)
+                    .glyph_transform(glyph_xform)
+                    .font_size(font_size)
+                    .normalized_coords(&coords)
+                    .draw(
+                        vello::peniko::Fill::NonZero,
+                        glyph_run.glyphs().map(|glyph| {
+                            let gx = x + glyph.x;
+                            let gy = y - glyph.y;
+                            x += glyph.advance;
+                            vello::glyph::Glyph {
+                                id: glyph.id as _,
+                                x: gx,
+                                y: gy,
+                            }
+                        }),
+                    );
+            }
+        }
     }
 
     fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
@@ -71,8 +105,7 @@ where
         } else {
             self.layout_text(self.text.clone(), constraints.max_size, font_cx);
         }
-        let TextLayout::ParleyLayout(layout) = &self.layout;
-        Size::new(layout.width() as f64, layout.height() as f64)
+        Size::new(self.layout.width() as f64, self.layout.height() as f64)
     }
 
     fn children(&self) -> Vec<&super::WidgetData<Message>> {

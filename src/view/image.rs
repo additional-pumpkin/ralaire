@@ -37,8 +37,7 @@ where
             .downcast_mut::<TextWidget>()
             .unwrap();
         tracing::error!("Image changed, unimplemented!");
-        widget_data.change_flags.layout = true;
-        widget_data.change_flags.draw = true;
+        // widget_data.change_flags.needs_repaint = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {

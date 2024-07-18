@@ -51,8 +51,7 @@ where
         container.h_alignment = self.h_alignment;
         container.v_alignment = self.v_alignment;
         container.padding = self.padding;
-        widget_data.change_flags.layout = true;
-        widget_data.change_flags.draw = false;
+        widget_data.change_flags.needs_layout = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {

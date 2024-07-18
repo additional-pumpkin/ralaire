@@ -24,14 +24,15 @@ impl App for Text {
     fn view(&self) -> impl View<Self::Message> {
         window(
             container(LOREM.to_owned())
-                .pad(10.)
+                .pad([0., 100.])
+                .h_align(alignment::Horizontal::Left)
                 .v_align(alignment::Vertical::Top),
         )
         .title("Text")
     }
 
-    fn update(&mut self, message: Self::Message) -> Vec<Command<Self::Message>> {
-        match message {}
+    fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
+        Command::none()
     }
 }
 fn main() -> ralaire::Result {
