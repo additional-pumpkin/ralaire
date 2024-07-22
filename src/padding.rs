@@ -1,5 +1,4 @@
 // Copyright 2019 Héctor Ramón, Iced contributors
-use vello::peniko::kurbo::Size;
 
 /// An amount of space to pad for each side of a box
 #[derive(Debug, Copy, Clone)]

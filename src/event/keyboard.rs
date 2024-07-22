@@ -4,7 +4,7 @@ pub struct Event {
     key: KeyCode,
     modifiers: Modifiers,
 }
-
+#[allow(dead_code)]
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum KeyCode {

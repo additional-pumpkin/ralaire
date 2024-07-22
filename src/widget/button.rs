@@ -1,5 +1,5 @@
-use crate::widget::ContainerWidget;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Container;
+use crate::widget::Widget;
 use crate::{
     alignment,
     event::{self, mouse::MouseButton},
@@ -10,7 +10,7 @@ use vello::peniko::{Color, Fill};
 
 use super::WidgetData;
 
-pub struct ButtonWidget<Message>
+pub struct Button<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -18,11 +18,11 @@ where
     pub(crate) radii: RoundedRectRadii,
     pub(crate) color: Color,
     pub(crate) on_press: Option<Message>,
-    child: ContainerWidget<Message>,
+    child: Container<Message>,
     hovered: bool,
 }
 
-impl<Message> ButtonWidget<Message>
+impl<Message> Button<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -33,7 +33,7 @@ where
         color: Color,
         on_press: Option<Message>,
     ) -> Self {
-        let child = ContainerWidget::new(
+        let child = Container::new(
             child,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
@@ -50,14 +50,14 @@ where
     }
 }
 
-impl<Message> Widget<Message> for ButtonWidget<Message>
+impl<Message> Widget<Message> for Button<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn debug_name(&self) -> &str {
         "button"
     }
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         scene.fill(
             Fill::NonZero,
             Affine::default(),
@@ -85,14 +85,8 @@ where
         self.child.children_mut()
     }
 
-    fn layout(&mut self, _constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        self.child.layout(
-            Constraints {
-                min_size: self.size,
-                max_size: self.size,
-            },
-            font_cx,
-        );
+    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
+        self.child.layout(self.size, font_cx);
         self.size
     }
 

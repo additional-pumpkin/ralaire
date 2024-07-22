@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use super::WidgetData;
-use crate::widget::ContainerWidget;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Container;
+use crate::widget::Widget;
 use crate::InternalMessage;
 use crate::{
     alignment,
@@ -21,7 +21,7 @@ where
     Message: Clone + core::fmt::Debug + 'static,
 {
     on_press: InternalMessage,
-    child: ContainerWidget<Message>,
+    child: Container<Message>,
     hovered: bool,
     phantom_message: PhantomData<Message>,
 }
@@ -31,7 +31,7 @@ where
     Message: Clone + core::fmt::Debug + 'static,
 {
     pub fn new(child: WidgetData<Message>, on_press: InternalMessage) -> Self {
-        let child = ContainerWidget::new(
+        let child = Container::new(
             child,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
@@ -53,7 +53,7 @@ where
     fn debug_name(&self) -> &str {
         "window_button"
     }
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         scene.fill(
             Fill::NonZero,
             Affine::default(),
@@ -102,14 +102,8 @@ where
         self.child.children_mut()
     }
 
-    fn layout(&mut self, _constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        self.child.layout(
-            Constraints {
-                min_size: SIZE,
-                max_size: SIZE,
-            },
-            font_cx,
-        );
+    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
+        self.child.layout(SIZE, font_cx);
         SIZE
     }
 

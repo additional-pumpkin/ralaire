@@ -1,7 +1,7 @@
 use super::WidgetData;
 use crate::event::mouse::MouseButton;
 use crate::event::WidgetEvent;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use crate::{event, InternalMessage, WidgetId};
 use core::f64::consts::PI;
 use parley::FontContext;
@@ -35,7 +35,7 @@ fn interpolate(start: f64, end: f64, factor: f64) -> f64 {
     )
 }
 #[derive(Debug)]
-pub struct WindowWidget<Message>
+pub struct Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -48,12 +48,12 @@ where
     title: String,
 }
 
-impl<Message> WindowWidget<Message>
+impl<Message> Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     pub fn new(header: WidgetData<Message>, content: WidgetData<Message>, title: String) -> Self {
-        WindowWidget {
+        Window {
             id: WidgetId::unique(),
             bounds: Rect::ZERO.to_rounded_rect(CORNER_RADIUS),
             size: Size::ZERO,
@@ -72,7 +72,7 @@ where
         &mut self.content
     }
 }
-impl<Message> Widget<Message> for WindowWidget<Message>
+impl<Message> Widget<Message> for Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -81,7 +81,7 @@ where
     }
     // TODO: Support SSD on wayland
     // TODO: Figure out what to do for other platforms
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         // Normally shadows are implemented with blur, vello doesn't support it yet so
         // here we approximate the gaussian function exp(-8x^2) by using 11 color points
         // and linear interpolation between the SHADOW_COLOR and SHADOW_FADE_COLOR
@@ -550,23 +550,16 @@ where
             &self.bounds,
         );
         scene.push_layer(BlendMode::default(), 1.0, Affine::default(), &self.bounds);
-        let mut header_fragment = vello::Scene::new();
-        self.header.widget.paint(&mut header_fragment);
-        let affine = Affine::translate(self.header.position.to_vec2());
-        scene.append(&header_fragment, Some(affine));
-        let mut content_fragment = vello::Scene::new();
-        self.content.widget.paint(&mut content_fragment);
-        let affine = Affine::translate(self.content.position.to_vec2());
-        scene.append(&content_fragment, Some(affine));
+        self.header.paint(scene);
+        self.content.paint(scene);
         scene.pop_layer();
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        let size = constraints.max_size;
-        self.size = size;
+    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
+        self.size = size_hint;
         self.bounds = Rect::from_origin_size(
             Point::new(SHADOW_WIDTH, SHADOW_WIDTH),
-            size - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
+            size_hint - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
         )
         .to_rounded_rect(CORNER_RADIUS);
         let header_size = Size::new(self.bounds.width(), HEADER_BAR_HEIGHT);
@@ -575,26 +568,14 @@ where
             self.bounds.height() - HEADER_BAR_HEIGHT,
         );
 
-        self.header.widget.layout(
-            Constraints {
-                min_size: header_size,
-                max_size: header_size,
-            },
-            font_cx,
-        );
+        self.header.layout(header_size, font_cx);
 
-        self.content.widget.layout(
-            Constraints {
-                min_size: content_size,
-                max_size: content_size,
-            },
-            font_cx,
-        );
+        self.content.layout(content_size, font_cx);
         self.header.size = header_size;
         self.header.position = Point::new(SHADOW_WIDTH, SHADOW_WIDTH);
         self.content.size = content_size;
         self.content.position = Point::new(SHADOW_WIDTH, SHADOW_WIDTH + HEADER_BAR_HEIGHT);
-        constraints.max_size
+        size_hint
     }
     fn event(
         &mut self,

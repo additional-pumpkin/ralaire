@@ -1,14 +1,14 @@
 use super::App;
 use crate::command::Task;
+use crate::AnimationDirection;
 use crate::{app::window::AppWindow, view::RootView};
 use crate::{event::window_event, AnimationId, DebugLayer};
-use crate::{AnimationDirection, Command};
 use parley::FontContext;
 use std::sync::{Arc, Mutex};
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::{DeviceEvent, DeviceId, WindowEvent},
+    event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     window::WindowId,
 };
@@ -29,10 +29,7 @@ where
     A: App,
 {
     fn default() -> Self {
-        let runner = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .build()
-            .unwrap();
+        let runner = tokio::runtime::Runtime::new().unwrap();
         AppState {
             app: App::new(),
             event_loop_proxy: None,

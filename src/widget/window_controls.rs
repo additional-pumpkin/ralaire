@@ -1,15 +1,15 @@
-use super::{window_button::WindowButtonWidget, ContainerWidget, SvgWidget, WidgetData};
-use crate::widget::{Constraints, Widget};
+use super::{window_button::WindowButtonWidget, Container, Svg, WidgetData};
+use crate::widget::Widget;
 use crate::{alignment, event, InternalMessage};
 use parley::FontContext;
-use vello::peniko::kurbo::{Affine, Point, Size};
-use vello::peniko::Color;
+use vello_svg::usvg;
+use vello::peniko::kurbo::{Point, Size};
 
 const WINDOW_CONTROLS_WIDTH: f64 = 100.;
 const WINDOW_CONTROLS_HEIGHT: f64 = 46.;
 
 #[derive(Debug)]
-pub struct WindowControlsWidget<Message>
+pub struct WindowControls<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -22,45 +22,47 @@ where
     buttons: Vec<WidgetData<Message>>,
 }
 
-impl<Message> WindowControlsWidget<Message>
+impl<Message> WindowControls<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
     pub fn new() -> Self {
-        let close_icon = WidgetData::new(Box::new(SvgWidget::new(
-            "assets/icons/window-close-symbolic.svg",
-        )));
+        let close_svg = usvg::Tree::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/icons/window-close-symbolic.svg")), &usvg::Options::default()).unwrap();
+        let maximize_svg = usvg::Tree::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/icons/window-maximize-symbolic.svg")), &usvg::Options::default()).unwrap();
+        let minimize_svg = usvg::Tree::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/icons/window-minimize-symbolic.svg")), &usvg::Options::default()).unwrap();
+        let close_icon =
+            WidgetData::new(Box::new(Svg::new(close_svg)));
         let close_button = WidgetData::new(Box::new(WindowButtonWidget::new(
             close_icon,
             InternalMessage::CloseWindow,
         )));
-        let close_button = WidgetData::new(Box::new(ContainerWidget::new(
+        let close_button = WidgetData::new(Box::new(Container::new(
             close_button,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
             0.0.into(),
         )));
-        let maximise_icon = WidgetData::new(Box::new(SvgWidget::new(
-            "assets/icons/window-maximize-symbolic.svg",
+        let maximise_icon = WidgetData::new(Box::new(Svg::new(
+            maximize_svg
         )));
         let maximise_button = WidgetData::new(Box::new(WindowButtonWidget::new(
             maximise_icon,
             InternalMessage::MaximiseWindow,
         )));
-        let maximise_button = WidgetData::new(Box::new(ContainerWidget::new(
+        let maximise_button = WidgetData::new(Box::new(Container::new(
             maximise_button,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
             0.0.into(),
         )));
-        let minimise_icon = WidgetData::new(Box::new(SvgWidget::new(
-            "assets/icons/window-minimize-symbolic.svg",
+        let minimise_icon = WidgetData::new(Box::new(Svg::new(
+            minimize_svg
         )));
         let minimise_button = WidgetData::new(Box::new(WindowButtonWidget::new(
             minimise_icon,
             InternalMessage::MinimiseWindow,
         )));
-        let minimise_button = WidgetData::new(Box::new(ContainerWidget::new(
+        let minimise_button = WidgetData::new(Box::new(Container::new(
             minimise_button,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
@@ -72,21 +74,18 @@ where
     }
 }
 
-impl<Message> Widget<Message> for WindowControlsWidget<Message>
+impl<Message> Widget<Message> for WindowControls<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn debug_name(&self) -> &str {
         "window_controls"
     }
-    fn layout(&mut self, _constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        let button_constraints = Constraints {
-            min_size: Size::new(WINDOW_CONTROLS_WIDTH / 3., WINDOW_CONTROLS_HEIGHT),
-            max_size: Size::new(WINDOW_CONTROLS_WIDTH / 3., WINDOW_CONTROLS_HEIGHT),
-        };
+    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
+        let button_size_hint = Size::new(WINDOW_CONTROLS_WIDTH / 3., WINDOW_CONTROLS_HEIGHT);
         let number_of_buttons = self.buttons.len();
         for (idx, button) in self.buttons.iter_mut().enumerate() {
-            button.size = button.widget.layout(button_constraints, font_cx);
+            button.size = button.layout(button_size_hint, font_cx);
             button.position = Point::new(
                 WINDOW_CONTROLS_WIDTH * (number_of_buttons - 1 - idx) as f64
                     / number_of_buttons as f64,
@@ -95,12 +94,9 @@ where
         }
         Size::new(WINDOW_CONTROLS_WIDTH, WINDOW_CONTROLS_HEIGHT)
     }
-    fn paint(&self, scene: &mut vello::Scene) {
-        for child in self.children() {
-            let mut fragment = vello::Scene::new();
-            child.widget.paint(&mut fragment);
-            let affine = Affine::translate(child.position.to_vec2());
-            scene.append(&fragment, Some(affine));
+    fn paint(&mut self, scene: &mut vello::Scene) {
+        for child in self.children_mut() {
+            child.paint(scene);
         }
     }
     fn children(&self) -> Vec<&super::WidgetData<Message>> {

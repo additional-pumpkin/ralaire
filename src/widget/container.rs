@@ -1,12 +1,12 @@
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use crate::{alignment, event, Padding};
 
 use parley::FontContext;
-use vello::peniko::kurbo::{Affine, Point, Size};
+use vello::kurbo::{Point, Size};
 
 use super::WidgetData;
 
-pub struct ContainerWidget<Message>
+pub struct Container<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -17,7 +17,7 @@ where
     child: WidgetData<Message>,
 }
 
-impl<Message> ContainerWidget<Message>
+impl<Message> Container<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -27,7 +27,7 @@ where
         v_alignment: alignment::Vertical,
         padding: Padding,
     ) -> Self {
-        ContainerWidget {
+        Container {
             size: Size::ZERO,
             h_alignment,
             v_alignment,
@@ -37,15 +37,12 @@ where
     }
 }
 
-impl<Message> Widget<Message> for ContainerWidget<Message>
+impl<Message> Widget<Message> for Container<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn paint(&self, scene: &mut vello::Scene) {
-        let mut fragment = vello::Scene::new();
-        self.child.widget.paint(&mut fragment);
-        let affine = Affine::translate(self.child.position.to_vec2());
-        scene.append(&fragment, Some(affine));
+    fn paint(&mut self, scene: &mut vello::Scene) {
+        self.child.paint(scene);
     }
     fn debug_name(&self) -> &str {
         "container"
@@ -56,17 +53,13 @@ where
     fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
         vec![&mut self.child]
     }
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        let size = constraints.max_size;
-        self.size = size;
-        self.child.size = self.child.widget.layout(
-            Constraints {
-                min_size: Size::ZERO,
-                max_size: Size::new(
-                    size.width - self.padding.horizontal(),
-                    size.height - self.padding.vertical(),
-                ),
-            },
+    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
+        self.size = size_hint;
+        self.child.size = self.child.layout(
+            Size::new(
+                size_hint.width - self.padding.horizontal(),
+                size_hint.height - self.padding.vertical(),
+            ),
             font_cx,
         );
 

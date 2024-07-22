@@ -1,10 +1,10 @@
 use crate::AsAny;
 
 use crate::view::View;
-use crate::widget::{HeaderWidget, WidgetData};
+use crate::widget::{self, WidgetData};
 
-use super::window_controls::WindowControlsView;
-pub struct HeaderView<Message>
+use super::window_controls::WindowControls;
+pub struct Header<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -14,7 +14,7 @@ where
     window_controls: Box<dyn View<Message>>,
 }
 #[allow(dead_code)]
-impl<Message> HeaderView<Message>
+impl<Message> Header<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -23,7 +23,7 @@ where
             left: None,
             middle: None,
             right: None,
-            window_controls: Box::new(WindowControlsView),
+            window_controls: Box::new(WindowControls),
         }
     }
     pub fn left(mut self, view: impl View<Message>) -> Self {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<Message> View<Message> for HeaderView<Message>
+impl<Message> View<Message> for Header<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -50,7 +50,7 @@ where
         let right = self.right.as_ref().map(|view| view.build_widget());
         let window_controls = self.window_controls.build_widget();
 
-        WidgetData::new(Box::new(HeaderWidget::new(
+        WidgetData::new(Box::new(widget::Header::new(
             left,
             middle,
             right,
@@ -61,14 +61,11 @@ where
     fn change_widget(&self, _widget: &mut WidgetData<Message>) {}
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old)
-            .as_any()
-            .downcast_ref::<HeaderView<Message>>()
-            .unwrap();
+        let old = (**old).as_any().downcast_ref::<Header<Message>>().unwrap();
 
-        let header = (*widget.widget)
+        let header = (*widget.inner)
             .as_any_mut()
-            .downcast_mut::<HeaderWidget<Message>>()
+            .downcast_mut::<widget::Header<Message>>()
             .unwrap();
         // left
         if let Some(new_child) = &self.left {

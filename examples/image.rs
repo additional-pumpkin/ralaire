@@ -1,4 +1,4 @@
-use ralaire::view::{container, image};
+use ralaire::view::{image, scroll};
 use ralaire::Command;
 use ralaire::{
     app::App,
@@ -17,7 +17,7 @@ impl App for Image {
     }
 
     fn view(&self) -> impl View<Self::Message> {
-        window(container(image("assets/Ghostscript_Tiger.svg".into()))).title("Image")
+        window(scroll(image(include_bytes!("../assets/paris-30k.svg").into()))).title("Image")
     }
 
     fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {

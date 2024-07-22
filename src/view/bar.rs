@@ -1,8 +1,8 @@
 use crate::AsAny;
 
 use crate::view::View;
-use crate::widget::{BarWidget, WidgetData};
-pub struct BarView<Message>
+use crate::widget::{self, WidgetData};
+pub struct Bar<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -12,7 +12,7 @@ where
     height: f64,
 }
 #[allow(dead_code)]
-impl<Message> BarView<Message>
+impl<Message> Bar<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<Message> View<Message> for BarView<Message>
+impl<Message> View<Message> for Bar<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -47,17 +47,17 @@ where
         let middle = self.middle.as_ref().map(|view| view.build_widget());
         let right = self.right.as_ref().map(|view| view.build_widget());
 
-        WidgetData::new(Box::new(BarWidget::new(left, middle, right, self.height)))
+        WidgetData::new(Box::new(widget::Bar::new(left, middle, right, self.height)))
     }
 
     fn change_widget(&self, _widget: &mut WidgetData<Message>) {}
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old).as_any().downcast_ref::<BarView<Message>>().unwrap();
+        let old = (**old).as_any().downcast_ref::<Bar<Message>>().unwrap();
 
-        let bar = (*widget.widget)
+        let bar = (*widget.inner)
             .as_any_mut()
-            .downcast_mut::<BarWidget<Message>>()
+            .downcast_mut::<widget::Bar<Message>>()
             .unwrap();
         // left
         if let Some(new_child) = &self.left {

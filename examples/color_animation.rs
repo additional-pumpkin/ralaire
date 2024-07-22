@@ -1,9 +1,9 @@
-use vello::peniko::Color;
 use ralaire::{
     app::App,
     view::{button, container, window, View},
     Animation, AnimationDirection, Command,
 };
+use vello::peniko::Color;
 #[derive(Debug, Clone)]
 enum Message {
     Tick,

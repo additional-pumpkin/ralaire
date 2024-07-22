@@ -1,5 +1,6 @@
 use vello::peniko::kurbo::Size;
 
+#[allow(dead_code)]
 pub type WindowId = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq)]

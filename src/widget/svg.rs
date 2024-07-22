@@ -1,33 +1,25 @@
 use crate::event;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use parley::FontContext;
-use vello::peniko::kurbo::Size;
-use vello::peniko::BlendMode;
-use std::fs;
 use std::marker::PhantomData;
-use std::path::Path;
-use vello::kurbo::{Affine, Shape};
+use vello::kurbo::{Affine, Size};
 use vello_svg::usvg;
 
-pub struct SvgWidget<Message> {
+pub struct Svg<Message> {
     svg: usvg::Tree,
     size: Size,
     phantom_message: PhantomData<Message>,
 }
 
-impl<Message> SvgWidget<Message>
+impl<Message> Svg<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
-    pub fn new<P>(path: P) -> Self
-    where
-        P: AsRef<Path>,
+    pub fn new(svg: usvg::Tree) -> Self
     {
-        let svg_text = fs::read_to_string(path).unwrap();
-        let tree = usvg::Tree::from_str(&svg_text, &usvg::Options::default()).unwrap();
-        let bounds_size = Size::new(tree.size().width() as f64, tree.size().height() as f64);
+        let bounds_size = Size::new(svg.size().width() as f64, svg.size().height() as f64);
         Self {
-            svg: tree,
+            svg,
             size: bounds_size,
             phantom_message: PhantomData,
         }
@@ -37,11 +29,11 @@ where
     }
 }
 
-impl<Message> Widget<Message> for SvgWidget<Message>
+impl<Message> Widget<Message> for Svg<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         let scale = Affine::scale_non_uniform(
             self.size.width / self.svg.size().width() as f64,
             self.size.height / self.svg.size().height() as f64,
@@ -53,7 +45,7 @@ where
     fn debug_name(&self) -> &str {
         "image"
     }
-    fn layout(&mut self, _constraints: Constraints, _font_cx: &mut FontContext) -> Size {
+    fn layout(&mut self, _size_hint: Size, _font_cx: &mut FontContext) -> Size {
         self.size
     }
 

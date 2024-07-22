@@ -8,19 +8,10 @@ pub mod mouse;
 pub mod touch;
 pub mod window;
 use crate::InternalMessage;
-use crate::WindowId;
 extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 #[derive(Debug, Clone, PartialEq)]
-pub enum Event {
-    Window {
-        window_id: WindowId,
-        event: window::Event,
-    },
-}
-
-#[derive(Debug, PartialEq)]
 pub enum Status {
     Ignored,
     Captured,
@@ -219,7 +210,7 @@ pub fn window_event(
         WindowEvent::MouseWheel { delta, .. } => match delta {
             winit::event::MouseScrollDelta::LineDelta(delta_x, delta_y) => {
                 Some(window::Event::Mouse(mouse::Event::Wheel {
-                    delta: Vec2::new(*delta_x as f64, *delta_y as f64),
+                    delta: Vec2::new(*delta_x as f64 * 30., *delta_y as f64 * 30.),
                 }))
             }
             winit::event::MouseScrollDelta::PixelDelta(position) => {

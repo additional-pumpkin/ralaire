@@ -1,12 +1,8 @@
 use std::sync::Arc;
 
-use crate::{DebugLayer, WindowSize};
-use vello::peniko::kurbo::{Affine, Stroke};
-use vello::peniko::Color;
+use crate::WindowSize;
+use vello::peniko::kurbo::Affine;
 extern crate alloc;
-use alloc::vec;
-use alloc::vec::Vec;
-use rand::{Rng, SeedableRng};
 
 pub struct RenderEngine<'a> {
     size: WindowSize,
@@ -47,7 +43,7 @@ impl<'a> RenderEngine<'a> {
         }
     }
 
-    pub fn render(&mut self, fragment: &vello::Scene, scale: f64, debug: &mut DebugLayer) {
+    pub fn render(&mut self, fragment: &vello::Scene, scale: f64) {
         let base_color = vello::peniko::Color::TRANSPARENT;
         let render_params = vello::RenderParams {
             base_color,

@@ -1,4 +1,4 @@
-use ralaire::view::{button, container, flex, window};
+use ralaire::view::{button, flex, window};
 use ralaire::view_seq;
 use ralaire::widget::FlexDirection;
 use ralaire::{app::App, view::View, Command};

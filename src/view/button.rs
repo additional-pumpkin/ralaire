@@ -1,8 +1,16 @@
 use crate::view::View;
-use crate::widget::{ButtonWidget, WidgetData};
+use crate::widget::{self, WidgetData};
 use vello::peniko::kurbo::{RoundedRectRadii, Size};
 use vello::peniko::Color;
-pub struct ButtonView<Message> {
+
+pub fn button<Message>(child: impl View<Message>) -> Button<Message>
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    Button::new(Box::new(child))
+}
+
+pub struct Button<Message> {
     size: Size,
     radii: RoundedRectRadii,
     color: Color,
@@ -10,7 +18,7 @@ pub struct ButtonView<Message> {
     child: Box<dyn View<Message>>,
 }
 
-impl<Message> ButtonView<Message> {
+impl<Message> Button<Message> {
     pub fn new(child: Box<dyn View<Message>>) -> Self {
         Self {
             size: Size::new(60. * 1.5, 23. * 1.5),
@@ -34,13 +42,13 @@ impl<Message> ButtonView<Message> {
     }
 }
 
-impl<Message> View<Message> for ButtonView<Message>
+impl<Message> View<Message> for Button<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn build_widget(&self) -> WidgetData<Message> {
         let child = self.child.build_widget();
-        let button = ButtonWidget::new(
+        let button = widget::Button::new(
             child,
             self.size,
             self.radii,
@@ -51,9 +59,9 @@ where
     }
 
     fn change_widget(&self, widget_data: &mut WidgetData<Message>) {
-        let button = (*widget_data.widget)
+        let button = (*widget_data.inner)
             .as_any_mut()
-            .downcast_mut::<ButtonWidget<Message>>()
+            .downcast_mut::<widget::Button<Message>>()
             .unwrap();
         if button.size != self.size {
             button.size = self.size;
@@ -61,22 +69,19 @@ where
         }
         button.color = self.color;
         button.radii = self.radii;
-        widget_data.change_flags.needs_repaint = true;
+        widget_data.change_flags.needs_paint = true;
         button.on_press.clone_from(&self.on_press);
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old)
-            .as_any()
-            .downcast_ref::<ButtonView<Message>>()
-            .unwrap();
+        let old = (**old).as_any().downcast_ref::<Button<Message>>().unwrap();
         if self.size != old.size || self.color != old.color || self.radii != old.radii
         // || self.on_press != old.on_press
         {
             self.change_widget(widget)
         }
         // there is only one child...
-        for child in widget.widget.children_mut() {
+        for child in widget.inner.children_mut() {
             self.child.reconciliate(&old.child, child)
         }
     }

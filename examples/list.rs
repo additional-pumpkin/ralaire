@@ -1,8 +1,8 @@
-use vello::peniko::Color;
 use ralaire::view::{button, flex, window};
 use ralaire::widget::FlexDirection;
 use ralaire::{app::App, view::View};
 use ralaire::{view_seq, Command};
+use vello::peniko::Color;
 #[derive(Debug, Clone)]
 enum Message {
     AddTask,

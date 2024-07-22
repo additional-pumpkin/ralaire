@@ -1,11 +1,18 @@
 use crate::{
     view::View,
-    widget::{WidgetData, WindowWidget},
+    widget::{self, WidgetData},
 };
 
-use super::{container::ContainerView, HeaderView};
+use super::{container::Container, Header};
 
-pub struct WindowView<Message>
+pub fn window<Message>(child: impl View<Message>) -> Window<Message>
+where
+    Message: core::fmt::Debug + Clone + 'static,
+{
+    Window::new(Box::new(Header::new()), Box::new(child))
+}
+
+pub struct Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -14,7 +21,7 @@ where
     title: String,
 }
 
-impl<Message> WindowView<Message>
+impl<Message> Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -29,21 +36,21 @@ where
         let title = title.into();
         self.header
             .as_any_mut()
-            .downcast_mut::<HeaderView<Message>>()
+            .downcast_mut::<Header<Message>>()
             .unwrap()
-            .middle = Some(Box::new(ContainerView::new(Box::new(title.clone()))));
+            .middle = Some(Box::new(Container::new(Box::new(title.clone()))));
         self.title = title;
         self
     }
 }
-impl<Message> View<Message> for WindowView<Message>
+impl<Message> View<Message> for Window<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn build_widget(&self) -> WidgetData<Message> {
         let header = self.header.build_widget();
         let content = self.content.build_widget();
-        WidgetData::new(Box::new(WindowWidget::new(
+        WidgetData::new(Box::new(widget::Window::new(
             header,
             content,
             self.title.clone(),
@@ -51,23 +58,20 @@ where
     }
     fn change_widget(&self, widget: &mut crate::widget::WidgetData<Message>) {
         dbg!();
-        (*widget.widget)
+        (*widget.inner)
             .as_any_mut()
-            .downcast_mut::<WindowWidget<Message>>()
+            .downcast_mut::<widget::Window<Message>>()
             .unwrap()
             .set_title(self.title.clone());
     }
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old)
-            .as_any()
-            .downcast_ref::<WindowView<Message>>()
-            .unwrap();
+        let old = (**old).as_any().downcast_ref::<Window<Message>>().unwrap();
         if self.title != old.title {
             self.change_widget(widget)
         }
-        let widget = (*widget.widget)
+        let widget = (*widget.inner)
             .as_any_mut()
-            .downcast_mut::<WindowWidget<Message>>()
+            .downcast_mut::<widget::Window<Message>>()
             .unwrap();
         self.header.reconciliate(&old.header, widget.header());
         if self.content.as_any().type_id() == old.content.as_any().type_id() {

@@ -1,16 +1,16 @@
 use super::WidgetData;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use crate::{
     event::{self, mouse::MouseButton, WidgetEvent},
     InternalMessage,
 };
 use parley::FontContext;
-use vello::peniko::kurbo::{Affine, Point, Size};
+use vello::kurbo::{Point, Size};
 const WINDOW_CONTROLS_WIDTH: f64 = 100.;
 const HEADER_HEIGHT: f64 = 46.;
 
 /// like bar but includes window controls (for example minimise, maximise, close)
-pub struct HeaderWidget<Message>
+pub struct Header<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -22,7 +22,7 @@ where
 }
 
 #[allow(dead_code)]
-impl<Message> HeaderWidget<Message>
+impl<Message> Header<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -51,19 +51,16 @@ where
     }
 }
 
-impl<Message> Widget<Message> for HeaderWidget<Message>
+impl<Message> Widget<Message> for Header<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn debug_name(&self) -> &str {
         "header"
     }
-    fn paint(&self, scene: &mut vello::Scene) {
-        for child in self.children() {
-            let mut fragment = vello::Scene::new();
-            child.widget.paint(&mut fragment);
-            let affine = Affine::translate(child.position.to_vec2());
-            scene.append(&fragment, Some(affine));
+    fn paint(&mut self, scene: &mut vello::Scene) {
+        for child in self.children_mut() {
+            child.paint(scene);
         }
     }
 
@@ -85,32 +82,29 @@ where
             .collect()
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        if !constraints.max_size.is_finite() {
-            tracing::error!("Header widget: max size is infinite");
+    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
+        if !size_hint.is_finite() {
+            tracing::error!("Header widget: size hint is infinite");
         }
-        self.width = constraints.max_size.width;
-        let side_constraints = Constraints {
-            min_size: Size::ZERO,
-            max_size: Size {
-                width: f64::INFINITY,
-                height: HEADER_HEIGHT,
-            },
+        self.width = size_hint.width;
+        let side_size_hint = Size {
+            width: f64::INFINITY,
+            height: HEADER_HEIGHT,
         };
         let left_width;
         let right_width;
         if let Some(left) = &mut self.left {
-            left_width = left.widget.layout(side_constraints, font_cx).width;
+            left_width = left.layout(side_size_hint, font_cx).width;
         } else {
             left_width = 0.;
         }
         if let Some(right) = &mut self.right {
-            right_width = right.widget.layout(side_constraints, font_cx).width;
+            right_width = right.layout(side_size_hint, font_cx).width;
         } else {
             right_width = 0.;
         }
         let max_width = f64::max(left_width, right_width + WINDOW_CONTROLS_WIDTH);
-        let middle_width = constraints.max_size.width - max_width * 2.;
+        let middle_width = size_hint.width - max_width * 2.;
         if let Some(left) = &mut self.left {
             left.size = Size::new(max_width, HEADER_HEIGHT);
             left.position = Point::new(0., 0.);
@@ -119,31 +113,24 @@ where
             right.size = Size::new(max_width, HEADER_HEIGHT);
             right.position = Point::new(max_width + middle_width, 0.);
         }
-        let middle_constraints = Constraints {
-            min_size: Size::ZERO,
-            max_size: Size {
-                width: middle_width,
-                height: HEADER_HEIGHT,
-            },
+        let middle_size_hint = Size {
+            width: middle_width,
+            height: HEADER_HEIGHT,
         };
         // TODO: handle all sizes within constraints
         if let Some(middle) = &mut self.middle {
-            middle.widget.layout(middle_constraints, font_cx);
+            middle.layout(middle_size_hint, font_cx);
             middle.size = Size::new(middle_width, HEADER_HEIGHT);
             middle.position = Point::new(max_width, 0.);
         }
 
-        self.window_controls.widget.layout(
-            Constraints {
-                min_size: Size::new(WINDOW_CONTROLS_WIDTH, HEADER_HEIGHT),
-                max_size: Size::new(WINDOW_CONTROLS_WIDTH, HEADER_HEIGHT),
-            },
-            font_cx,
-        );
+        self.window_controls
+            .inner
+            .layout(Size::new(WINDOW_CONTROLS_WIDTH, HEADER_HEIGHT), font_cx);
         self.window_controls.position = Point::new(self.width - WINDOW_CONTROLS_WIDTH, 0.);
         self.window_controls.size = Size::new(WINDOW_CONTROLS_WIDTH, HEADER_HEIGHT);
 
-        constraints.max_size
+        size_hint
     }
 
     fn event(

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::event::window::Event;
 use crate::renderer::RenderEngine;
 use crate::view::RootView;
-use crate::widget::Constraints;
 use crate::widget::{RootWidget, Widget};
 use crate::{
     event::{self, EventCx},
@@ -45,15 +44,13 @@ where
         let window_attributes = Window::default_attributes()
             .with_decorations(false)
             .with_transparent(true)
-            .with_min_inner_size(winit::dpi::PhysicalSize::new(200, 200))
+            .with_min_inner_size(winit::dpi::LogicalSize::new(200, 200))
             .with_title(title);
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         let physical_size: WindowSize = window.inner_size().into();
         let logical_size = physical_size.into();
         let mut root_widget: RootWidget<Message> = root_view.build_widget();
         let root_child_id = root_widget.child().id;
-        let bounds_tree = root_widget.bounds_tree(Vec::new(), Point::ZERO);
-
         debug.startup_finished();
         AppWindow {
             window: window.clone(),
@@ -67,7 +64,7 @@ where
             // FIXME: This shouldn't be necessary
             focused_widget: vec![root_child_id],
             hovered_widget: vec![root_child_id],
-            bounds_tree,
+            bounds_tree: vec![],
             render_engine: RenderEngine::new(window.clone(), physical_size).await,
         }
     }
@@ -107,24 +104,13 @@ where
         );
         debug.layout_started();
         // TODO: do layout
-        self.root_widget.layout(
-            Constraints {
-                min_size: self.logical_size,
-                max_size: self.logical_size,
-            },
-            font_cx,
-        );
+        self.root_widget.layout(self.logical_size, font_cx);
         debug.layout_finished();
         self.render_engine.resize(self.physical_size);
+        self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
     }
     pub fn layout(&mut self, font_cx: &mut FontContext) {
-        self.root_widget.layout(
-            Constraints {
-                min_size: self.logical_size.into(),
-                max_size: self.logical_size.into(),
-            },
-            font_cx,
-        );
+        self.root_widget.layout(self.logical_size.into(), font_cx);
     }
     pub fn paint(&mut self, debug: &mut DebugLayer) {
         let mut scene = vello::Scene::new();
@@ -132,7 +118,22 @@ where
         self.root_widget.paint(&mut scene);
         debug.draw_finished();
         debug.render_started();
-        self.render_engine.render(&scene, self.scale_factor, debug);
+        // draw debug layout thing
+        use rand::{Rng, SeedableRng};
+        use vello::kurbo::{Affine, Stroke};
+        use vello::peniko::Color;
+        for (id, bounds) in &self.bounds_tree {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(id.last().unwrap().to_raw() << 3);
+            scene.stroke(
+                &Stroke::default().with_dashes(0., [3., 3.]),
+                Affine::default(),
+                Color::rgb8(rng.gen(), rng.gen(), rng.gen()).with_alpha_factor(0.8),
+                None,
+                &bounds.inset(-0.5),
+            );
+        }
+
+        self.render_engine.render(&scene, self.scale_factor);
         debug.render_finished();
     }
     pub fn event(
@@ -158,7 +159,6 @@ where
                 debug.log();
             }
             _ => {
-                self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
                 let mut changed_hover = false;
                 if let Event::Mouse(mouse_event) = event.clone() {
                     if let event::mouse::Event::Move { position, .. } = mouse_event {
@@ -178,7 +178,6 @@ where
                             self.root_widget.send_hover(false, previous);
                             self.window.request_redraw();
                         }
-                        // debug!("Hovered widget: {:?}", self.hovered_widget);
                     }
 
                     if let event::mouse::Event::Press {
@@ -214,7 +213,11 @@ where
                 self.window.set_cursor(self.event_cx.cursor());
             }
         }
-
+        if self.event_cx.repaint_needed {
+            dbg!();
+            self.window.request_redraw();
+            self.event_cx.repaint_needed = false;
+        }
         for message in self.event_cx.drain_internal_messages() {
             match message {
                 InternalMessage::DragResizeWindow(direction) => {

@@ -3,14 +3,14 @@ use crate::event::{
     self,
     mouse::{self, MouseButton},
 };
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use parley::FontContext;
 use vello::kurbo::Affine;
 use vello::peniko::kurbo::{Circle, Point, Rect, Size};
 use vello::peniko::{Color, Fill};
 
 const SLIDER_HEIGHT: f64 = 50.;
-pub struct SliderWidget<Message>
+pub struct Slider<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -22,7 +22,7 @@ where
     hovered: bool,
 }
 
-impl<Message> SliderWidget<Message>
+impl<Message> Slider<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
@@ -37,14 +37,14 @@ where
     }
 }
 
-impl<Message> Widget<Message> for SliderWidget<Message>
+impl<Message> Widget<Message> for Slider<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn debug_name(&self) -> &str {
         "slider"
     }
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         scene.fill(
             Fill::NonZero,
             Affine::default(),
@@ -88,8 +88,8 @@ where
         vec![]
     }
 
-    fn layout(&mut self, constraints: Constraints, _font_cx: &mut FontContext) -> Size {
-        self.length = constraints.max_size.width;
+    fn layout(&mut self, size_hint: Size, _font_cx: &mut FontContext) -> Size {
+        self.length = size_hint.width;
         Size::new(self.length, SLIDER_HEIGHT)
     }
 

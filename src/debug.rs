@@ -20,9 +20,6 @@ pub struct DebugLayer {
     draw_start: Instant,
     draw_durations: TimeBuffer,
 
-    encode_start: Instant,
-    encode_durations: TimeBuffer,
-
     render_start: Instant,
     render_durations: TimeBuffer,
 }
@@ -50,8 +47,6 @@ impl DebugLayer {
 
             draw_start: now,
             draw_durations: TimeBuffer::new(10),
-            encode_start: now,
-            encode_durations: TimeBuffer::new(10),
 
             render_start: now,
             render_durations: TimeBuffer::new(10),
@@ -106,14 +101,6 @@ impl DebugLayer {
         self.draw_durations.push(self.draw_start.elapsed());
     }
 
-    pub fn encode_started(&mut self) {
-        self.encode_start = Instant::now();
-    }
-
-    pub fn encode_finished(&mut self) {
-        self.encode_durations.push(self.encode_start.elapsed());
-    }
-
     pub fn render_started(&mut self) {
         self.render_start = Instant::now();
     }
@@ -150,11 +137,6 @@ impl DebugLayer {
             "Draw: avg={:?}, max={:?}",
             self.draw_durations.average(),
             self.draw_durations.max()
-        );
-        info!(
-            "Encode: avg={:?}, max={:?}",
-            self.encode_durations.average(),
-            self.encode_durations.max()
         );
         info!(
             "Render: avg={:?}, max={:?}",

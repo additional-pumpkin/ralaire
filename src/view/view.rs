@@ -13,6 +13,13 @@ where
     }
 }
 
+#[macro_export]
+macro_rules! view_seq {
+    ($($x:expr),+ $(,)?) => {$crate::view::ViewSequence(
+        vec![$(Box::new($x)),+],
+    )};
+}
+
 pub struct ViewSequence<Message>(pub Vec<Box<dyn View<Message>>>);
 
 impl<V, Message> From<Vec<V>> for ViewSequence<Message>

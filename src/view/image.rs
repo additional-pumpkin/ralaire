@@ -1,14 +1,19 @@
-use std::path::PathBuf;
+use core::str;
+use vello_svg::usvg;
 
 use crate::view::View;
-use crate::widget::{ImageWidget, SvgWidget, TextWidget, WidgetData};
+use crate::widget::{self, Text, WidgetData};
+
+pub fn image(bytes: Vec<u8>) -> ImageView {
+    ImageView::new(bytes)
+}
 
 pub struct ImageView {
-    image_path: PathBuf,
+    bytes: Vec<u8>,
 }
 impl ImageView {
-    pub fn new(image_path: PathBuf) -> Self {
-        Self { image_path }
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
     }
 }
 
@@ -17,36 +22,32 @@ where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn build_widget(&self) -> WidgetData<Message> {
-        if self
-            .image_path
-            .extension()
-            .expect("Images without an extension are unsupported")
-            .to_str()
-            .unwrap()
-            == "svg"
-        {
-            WidgetData::new(Box::new(SvgWidget::new(self.image_path.clone())))
-        } else {
-            WidgetData::new(Box::new(ImageWidget::new(self.image_path.clone())))
+        if let Ok(str) = str::from_utf8(&self.bytes) {
+            if let Ok(svg) = usvg::Tree::from_str(str, &usvg::Options::default()) {
+                return WidgetData::new(Box::new(widget::Svg::new(svg)));
+            }
+
         }
+        WidgetData::new(Box::new(widget::Image::new(&self.bytes)))
+        
     }
 
     fn change_widget(&self, widget_data: &mut WidgetData<Message>) {
-        (*widget_data.widget)
+        (*widget_data.inner)
             .as_any_mut()
-            .downcast_mut::<TextWidget>()
+            .downcast_mut::<Text>()
             .unwrap();
         tracing::error!("Image changed, unimplemented!");
         // widget_data.change_flags.needs_repaint = true;
     }
 
     fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        if self.image_path
+        if self.bytes
             != (**old)
                 .as_any()
                 .downcast_ref::<ImageView>()
                 .unwrap()
-                .image_path
+                .bytes
         {
             self.change_widget(widget)
         }

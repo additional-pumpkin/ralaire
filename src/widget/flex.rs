@@ -1,8 +1,8 @@
 use super::WidgetData;
 use crate::event;
-use crate::widget::{Constraints, Widget};
+use crate::widget::Widget;
 use parley::FontContext;
-use vello::peniko::kurbo::{Affine, Point, Size};
+use vello::kurbo::{Point, Size};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexDirection {
@@ -17,20 +17,20 @@ pub enum FlexAxis {
     Horizontal,
 }
 
-enum CrossAxisAlignment {
+pub enum CrossAxisAlignment {
     Start,
     Center,
     End,
 }
 
-pub struct Child<Message>
+pub struct FlexChild<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     pub widget: WidgetData<Message>,
     pub flex_factor: Option<f64>,
 }
-pub struct FlexBoxWidget<Message>
+pub struct Flex<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
@@ -38,14 +38,18 @@ where
     pub(crate) main_axis: FlexAxis,
     pub(crate) direction_flipped: bool,
     pub(crate) cross_axis_alignment: CrossAxisAlignment,
-    children: Vec<Child<Message>>,
+    children: Vec<FlexChild<Message>>,
 }
 
-impl<Message> FlexBoxWidget<Message>
+impl<Message> Flex<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    pub fn new(children: Vec<Child<Message>>, flex_direction: FlexDirection, spacing: f64) -> Self {
+    pub fn new(
+        children: Vec<FlexChild<Message>>,
+        flex_direction: FlexDirection,
+        spacing: f64,
+    ) -> Self {
         let (main_axis, direction_flipped) = match flex_direction {
             FlexDirection::Column => (FlexAxis::Vertical, false),
             FlexDirection::Row => (FlexAxis::Horizontal, false),
@@ -61,24 +65,21 @@ where
         }
     }
     pub fn set_flex_direction(&mut self, _flex_direction: FlexDirection) {}
-    pub fn mut_children(&mut self) -> &mut Vec<Child<Message>> {
+    pub fn mut_children(&mut self) -> &mut Vec<FlexChild<Message>> {
         &mut self.children
     }
 }
 
-impl<Message> Widget<Message> for FlexBoxWidget<Message>
+impl<Message> Widget<Message> for Flex<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
     fn debug_name(&self) -> &str {
         "flexbox"
     }
-    fn paint(&self, scene: &mut vello::Scene) {
-        for child in self.children() {
-            let mut fragment = vello::Scene::new();
-            child.widget.paint(&mut fragment);
-            let affine = Affine::translate(child.position.to_vec2());
-            scene.append(&fragment, Some(affine));
+    fn paint(&mut self, scene: &mut vello::Scene) {
+        for child in self.children_mut() {
+            child.paint(scene);
         }
     }
 
@@ -93,11 +94,10 @@ where
             .collect()
     }
 
-    fn layout(&mut self, constraints: Constraints, font_cx: &mut FontContext) -> Size {
-        let max_size = constraints.max_size;
+    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
         let (main_axis_size, cross_axis_size) = match self.main_axis {
-            FlexAxis::Horizontal => (max_size.width, max_size.height),
-            FlexAxis::Vertical => (max_size.height, max_size.width),
+            FlexAxis::Horizontal => (size_hint.width, size_hint.height),
+            FlexAxis::Vertical => (size_hint.height, size_hint.width),
         };
         let total_spacing = (self.children.len() + 1) as f64 * self.spacing;
         let mut main_axis_off = self.spacing;
@@ -105,13 +105,7 @@ where
         let mut total_fixed_main_axis = 0.;
         let mut total_flex_main_axis = 0.;
         for child in self.children.iter_mut() {
-            let child_size = child.widget.widget.layout(
-                Constraints {
-                    min_size: Size::ZERO,
-                    max_size,
-                },
-                font_cx,
-            );
+            let child_size = child.widget.layout(size_hint, font_cx);
             sizes.push(child_size);
             match self.main_axis {
                 FlexAxis::Horizontal => match child.flex_factor {
@@ -181,12 +175,8 @@ where
                     child_size = Size::new(size.width, child_height);
                 }
             }
-            let child_constraints = Constraints {
-                min_size: child_size,
-                max_size: child_size,
-            };
             child.widget.size = child_size;
-            child.widget.widget.layout(child_constraints, font_cx);
+            child.widget.layout(child_size, font_cx);
             match self.main_axis {
                 FlexAxis::Horizontal => {
                     main_axis_off += child_size.width + self.spacing;
@@ -213,7 +203,7 @@ where
                         .reduce(f64::max)
                         .unwrap_or(0.);
                 } else {
-                    flex_height = constraints.max_size.height;
+                    flex_height = size_hint.height;
                     flex_width = sizes
                         .iter()
                         .map(|size| size.width)
@@ -234,7 +224,7 @@ where
                         .reduce(f64::max)
                         .unwrap_or(0.);
                 } else {
-                    flex_width = constraints.max_size.width;
+                    flex_width = size_hint.width;
                     flex_height = sizes
                         .iter()
                         .map(|size| size.height)

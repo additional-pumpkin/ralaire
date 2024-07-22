@@ -1,37 +1,34 @@
 use crate::event;
-use crate::widget::{Constraints, Widget};
-use image::io::Reader as ImageReader;
+use crate::widget::Widget;
+use image::ImageReader;
 use parley::FontContext;
-use vello::peniko::kurbo::Size;
-use vello::peniko::{Blob, Image};
+use std::io::Cursor;
 use std::marker::PhantomData;
-use std::path::Path;
 use std::sync::Arc;
 use vello::kurbo::Affine;
+use vello::peniko::kurbo::Size;
+use vello::peniko::{Blob, Image as PenikoImage};
 
-pub struct ImageWidget<Message> {
-    image: Image,
+pub struct Image<Message> {
+    image: PenikoImage,
     size: Size,
     phantom_message: PhantomData<Message>,
 }
 
-impl<Message> ImageWidget<Message>
+impl<Message> Image<Message>
 where
     Message: Clone + core::fmt::Debug + 'static,
 {
-    pub fn new<P>(path: P) -> Self
-    where
-        P: AsRef<Path>,
+    pub fn new(bytes: &[u8]) -> Self
     {
-        let img = ImageReader::open(path)
-            .unwrap()
+        let img = ImageReader::new(Cursor::new(bytes))
             .with_guessed_format()
             .unwrap()
             .decode()
             .unwrap();
         let (w, h) = (img.width(), img.height());
         dbg!(w, h);
-        let image = Image::new(
+        let image = PenikoImage::new(
             Blob::new(Arc::new(img.to_rgba8().into_raw())),
             vello::peniko::Format::Rgba8,
             w,
@@ -49,19 +46,19 @@ where
     }
 }
 
-impl<Message> Widget<Message> for ImageWidget<Message>
+impl<Message> Widget<Message> for Image<Message>
 where
     Message: core::fmt::Debug + Clone + 'static,
 {
-    fn paint(&self, scene: &mut vello::Scene) {
+    fn paint(&mut self, scene: &mut vello::Scene) {
         scene.draw_image(&self.image.clone(), Affine::default());
     }
 
     fn debug_name(&self) -> &str {
         "image"
     }
-    fn layout(&mut self, _constraints: Constraints, _font_cx: &mut FontContext) -> Size {
-        // self.size = constraints.max_size;
+    fn layout(&mut self, _size_hint: Size, _font_cx: &mut FontContext) -> Size {
+        // self.size = size_hint;
         self.size
     }
 
