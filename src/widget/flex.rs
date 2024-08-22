@@ -23,30 +23,21 @@ pub enum CrossAxisAlignment {
     End,
 }
 
-pub struct FlexChild<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    pub widget: WidgetData<Message>,
+pub struct FlexChild<State> {
+    pub widget: WidgetData<State>,
     pub flex_factor: Option<f64>,
 }
-pub struct Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+pub struct Flex<State> {
     pub(crate) spacing: f64,
     pub(crate) main_axis: FlexAxis,
     pub(crate) direction_flipped: bool,
     pub(crate) cross_axis_alignment: CrossAxisAlignment,
-    children: Vec<FlexChild<Message>>,
+    children: Vec<FlexChild<State>>,
 }
 
-impl<Message> Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State> Flex<State> {
     pub fn new(
-        children: Vec<FlexChild<Message>>,
+        children: Vec<FlexChild<State>>,
         flex_direction: FlexDirection,
         spacing: f64,
     ) -> Self {
@@ -65,15 +56,12 @@ where
         }
     }
     pub fn set_flex_direction(&mut self, _flex_direction: FlexDirection) {}
-    pub fn mut_children(&mut self) -> &mut Vec<FlexChild<Message>> {
+    pub fn mut_children(&mut self) -> &mut Vec<FlexChild<State>> {
         &mut self.children
     }
 }
 
-impl<Message> Widget<Message> for Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Flex<State> {
     fn debug_name(&self) -> &str {
         "flexbox"
     }
@@ -83,11 +71,11 @@ where
         }
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         self.children.iter().map(|child| &child.widget).collect()
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         self.children
             .iter_mut()
             .map(|child| &mut child.widget)
@@ -238,8 +226,9 @@ where
 
     fn event(
         &mut self,
+        _event_cx: &mut event::EventCx,
         _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         event::Status::Ignored
     }

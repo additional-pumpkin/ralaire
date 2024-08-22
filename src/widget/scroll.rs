@@ -11,20 +11,14 @@ use vello::{
 
 use super::WidgetData;
 
-pub struct Scroll<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+pub struct Scroll<State> {
     size: Size,   // for clipping
     scroll: Vec2, // start = 0.0, end = 1.0
-    child: WidgetData<Message>,
+    child: WidgetData<State>,
 }
 
-impl<Message> Scroll<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    pub fn new(child: WidgetData<Message>) -> Self {
+impl<State> Scroll<State> {
+    pub fn new(child: WidgetData<State>) -> Self {
         Scroll {
             size: Size::ZERO,
             scroll: Vec2::ZERO,
@@ -33,10 +27,7 @@ where
     }
 }
 
-impl<Message> Widget<Message> for Scroll<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Scroll<State> {
     fn paint(&mut self, scene: &mut vello::Scene) {
         scene.push_layer(
             BlendMode::default(),
@@ -72,10 +63,10 @@ where
     fn debug_name(&self) -> &str {
         "container"
     }
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         vec![&self.child]
     }
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![&mut self.child]
     }
     fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
@@ -92,8 +83,9 @@ where
 
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(event::mouse::Event::Wheel { delta }) = event {
             event_cx.repaint_needed = true;

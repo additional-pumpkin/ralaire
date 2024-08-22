@@ -3,24 +3,18 @@ use crate::widget::Widget;
 use image::ImageReader;
 use parley::FontContext;
 use std::io::Cursor;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use vello::kurbo::Affine;
 use vello::peniko::kurbo::Size;
 use vello::peniko::{Blob, Image as PenikoImage};
 
-pub struct Image<Message> {
+pub struct Image {
     image: PenikoImage,
     size: Size,
-    phantom_message: PhantomData<Message>,
 }
 
-impl<Message> Image<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
-    pub fn new(bytes: &[u8]) -> Self
-    {
+impl Image {
+    pub fn new(bytes: &[u8]) -> Self {
         let img = ImageReader::new(Cursor::new(bytes))
             .with_guessed_format()
             .unwrap()
@@ -35,21 +29,14 @@ where
             h,
         );
         let size = Size::new(image.width as f64, image.height as f64);
-        Self {
-            image,
-            size,
-            phantom_message: PhantomData,
-        }
+        Self { image, size }
     }
     pub fn set_size(&mut self, size: Size) {
         self.size = size
     }
 }
 
-impl<Message> Widget<Message> for Image<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Image {
     fn paint(&mut self, scene: &mut vello::Scene) {
         scene.draw_image(&self.image.clone(), Affine::default());
     }
@@ -62,18 +49,19 @@ where
         self.size
     }
 
-    fn children(&self) -> Vec<&super::WidgetData<Message>> {
+    fn children(&self) -> Vec<&super::WidgetData<State>> {
         vec![]
     }
 
-    fn children_mut(&mut self) -> Vec<&mut super::WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut super::WidgetData<State>> {
         vec![]
     }
 
     fn event(
         &mut self,
+        _event_cx: &mut event::EventCx,
         _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         event::Status::Captured
     }

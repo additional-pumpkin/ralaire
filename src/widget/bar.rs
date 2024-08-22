@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::event;
 use crate::widget::Widget;
 use parley::FontContext;
@@ -7,25 +5,18 @@ use vello::kurbo::{Point, Size};
 
 use super::WidgetData;
 
-pub struct Bar<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    left: Option<WidgetData<Message>>,
-    middle: Option<WidgetData<Message>>,
-    right: Option<WidgetData<Message>>,
+pub struct Bar<State> {
+    left: Option<WidgetData<State>>,
+    middle: Option<WidgetData<State>>,
+    right: Option<WidgetData<State>>,
     height: f64,
-    phantom_data: PhantomData<Message>,
 }
 
-impl<Message> Bar<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State> Bar<State> {
     pub fn new(
-        left: Option<WidgetData<Message>>,
-        middle: Option<WidgetData<Message>>,
-        right: Option<WidgetData<Message>>,
+        left: Option<WidgetData<State>>,
+        middle: Option<WidgetData<State>>,
+        right: Option<WidgetData<State>>,
         height: f64,
     ) -> Self {
         Self {
@@ -33,16 +24,15 @@ where
             middle,
             right,
             height,
-            phantom_data: PhantomData,
         }
     }
-    pub fn left(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn left(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.left
     }
-    pub fn middle(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn middle(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.middle
     }
-    pub fn right(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn right(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.right
     }
     pub fn set_height(&mut self, height: f64) {
@@ -50,10 +40,7 @@ where
     }
 }
 
-impl<Message> Widget<Message> for Bar<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Bar<State> {
     fn debug_name(&self) -> &str {
         "bar"
     }
@@ -105,7 +92,7 @@ where
         Size::new(size_hint.width, self.height)
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         self.left
             .iter()
             .chain(self.middle.iter())
@@ -113,7 +100,7 @@ where
             .collect()
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         self.left
             .iter_mut()
             .chain(self.middle.iter_mut())
@@ -123,8 +110,9 @@ where
 
     fn event(
         &mut self,
+        _event_cx: &mut event::EventCx,
         _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         event::Status::Ignored
     }

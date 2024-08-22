@@ -10,27 +10,21 @@ const WINDOW_CONTROLS_WIDTH: f64 = 100.;
 const HEADER_HEIGHT: f64 = 46.;
 
 /// like bar but includes window controls (for example minimise, maximise, close)
-pub struct Header<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+pub struct Header<State> {
     width: f64,
-    left: Option<WidgetData<Message>>,
-    middle: Option<WidgetData<Message>>,
-    right: Option<WidgetData<Message>>,
-    window_controls: WidgetData<Message>,
+    left: Option<WidgetData<State>>,
+    middle: Option<WidgetData<State>>,
+    right: Option<WidgetData<State>>,
+    window_controls: WidgetData<State>,
 }
 
 #[allow(dead_code)]
-impl<Message> Header<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+impl<State> Header<State> {
     pub fn new(
-        left: Option<WidgetData<Message>>,
-        middle: Option<WidgetData<Message>>,
-        right: Option<WidgetData<Message>>,
-        window_controls: WidgetData<Message>,
+        left: Option<WidgetData<State>>,
+        middle: Option<WidgetData<State>>,
+        right: Option<WidgetData<State>>,
+        window_controls: WidgetData<State>,
     ) -> Self {
         Self {
             width: 0.,
@@ -40,21 +34,18 @@ where
             window_controls,
         }
     }
-    pub fn left(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn left(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.left
     }
-    pub fn middle(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn middle(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.middle
     }
-    pub fn right(&mut self) -> &mut Option<WidgetData<Message>> {
+    pub fn right(&mut self) -> &mut Option<WidgetData<State>> {
         &mut self.right
     }
 }
 
-impl<Message> Widget<Message> for Header<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Header<State> {
     fn debug_name(&self) -> &str {
         "header"
     }
@@ -64,7 +55,7 @@ where
         }
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         self.left
             .iter()
             .chain(self.middle.iter())
@@ -73,7 +64,7 @@ where
             .collect()
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         self.left
             .iter_mut()
             .chain(self.middle.iter_mut())
@@ -135,8 +126,9 @@ where
 
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         if let WidgetEvent::Mouse(event::mouse::Event::Press {
             position: _,

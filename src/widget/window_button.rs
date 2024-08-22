@@ -1,36 +1,25 @@
-use std::marker::PhantomData;
-
 use super::WidgetData;
+use crate::event::{self, mouse::MouseButton};
+use crate::widget::alignment;
 use crate::widget::Container;
 use crate::widget::Widget;
 use crate::InternalMessage;
-use crate::{
-    alignment,
-    event::{self, mouse::MouseButton},
-};
 use parley::FontContext;
 use vello::kurbo::Affine;
 use vello::peniko::kurbo::{Circle, Point, Size};
-use vello::peniko::{BlendMode, Color, Compose, Fill, Mix};
+use vello::peniko::{Color, Fill};
 
 const SIZE: Size = Size::new(24., 24.);
 const CENTER: Point = Point::new(SIZE.width / 2., SIZE.height / 2.);
 const RADIUS: f64 = SIZE.width / 2.;
-pub struct WindowButtonWidget<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+pub struct WindowButtonWidget<State> {
     on_press: InternalMessage,
-    child: Container<Message>,
+    child: Container<State>,
     hovered: bool,
-    phantom_message: PhantomData<Message>,
 }
 
-impl<Message> WindowButtonWidget<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
-    pub fn new(child: WidgetData<Message>, on_press: InternalMessage) -> Self {
+impl<State> WindowButtonWidget<State> {
+    pub fn new(child: WidgetData<State>, on_press: InternalMessage) -> Self {
         let child = Container::new(
             child,
             alignment::Horizontal::Center,
@@ -41,15 +30,11 @@ where
             on_press,
             child,
             hovered: false,
-            phantom_message: PhantomData,
         }
     }
 }
 
-impl<Message> Widget<Message> for WindowButtonWidget<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for WindowButtonWidget<State> {
     fn debug_name(&self) -> &str {
         "window_button"
     }
@@ -57,7 +42,8 @@ where
         scene.fill(
             Fill::NonZero,
             Affine::default(),
-            Color::rgb8(51, 51, 51),
+            Color::rgb8(235, 235, 235),
+            // Color::RED,
             None,
             &Circle::new(CENTER, RADIUS),
         );
@@ -65,40 +51,40 @@ where
             scene.fill(
                 Fill::NonZero,
                 Affine::default(),
-                Color::WHITE.with_alpha_factor(0.1),
+                Color::rgb8(223, 223, 223),
                 None,
                 &Circle::new(CENTER, RADIUS),
             );
         }
-        scene.push_layer(
-            BlendMode::new(Mix::Normal, Compose::SrcOver),
-            1.0,
-            Affine::default(),
-            &SIZE.to_rect(),
-        );
+        // scene.push_layer(
+        //     BlendMode::new(Mix::Normal, Compose::SrcOver),
+        //     1.0,
+        //     Affine::default(),
+        //     &SIZE.to_rect(),
+        // );
         self.child.paint(scene);
-        scene.push_layer(
-            BlendMode::new(Mix::Normal, Compose::SrcAtop),
-            1.0,
-            Affine::default(),
-            &SIZE.to_rect(),
-        );
-        scene.fill(
-            Fill::NonZero,
-            Affine::default(),
-            Color::WHITE,
-            None,
-            &SIZE.to_rect(),
-        );
-        scene.pop_layer();
-        scene.pop_layer();
+        // scene.push_layer(
+        //     BlendMode::new(Mix::Normal, Compose::SrcAtop),
+        //     1.0,
+        //     Affine::default(),
+        //     &SIZE.to_rect(),
+        // );
+        // scene.fill(
+        //     Fill::NonZero,
+        //     Affine::default(),
+        //     Color::WHITE,
+        //     None,
+        //     &SIZE.to_rect(),
+        // );
+        // scene.pop_layer();
+        // scene.pop_layer();
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         self.child.children()
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         self.child.children_mut()
     }
 
@@ -109,8 +95,9 @@ where
 
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(event::mouse::Event::Press {
             position: _,
@@ -126,7 +113,6 @@ where
     }
     fn set_hover(&mut self, hover: bool) -> event::Status {
         self.hovered = hover;
-        tracing::debug!("Set hovered to {}", hover);
         event::Status::Captured
     }
 }

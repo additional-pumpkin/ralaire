@@ -1,8 +1,7 @@
-use super::WidgetData;
 use crate::event::mouse::MouseButton;
 use crate::event::WidgetEvent;
-use crate::widget::Widget;
-use crate::{event, InternalMessage, WidgetId};
+use crate::widget::{Widget, WidgetData, WidgetId};
+use crate::{event, InternalMessage};
 use core::f64::consts::PI;
 use parley::FontContext;
 use vello::peniko::kurbo::{Affine, Circle, Point, Rect, RoundedRect, Shape, Size};
@@ -35,24 +34,18 @@ fn interpolate(start: f64, end: f64, factor: f64) -> f64 {
     )
 }
 #[derive(Debug)]
-pub struct Window<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+pub struct Window<State: 'static> {
     // TODO: remove this
     pub id: WidgetId,
     bounds: RoundedRect,
     size: Size, // includes shadows
-    header: WidgetData<Message>,
-    content: WidgetData<Message>,
+    header: WidgetData<State>,
+    content: WidgetData<State>,
     title: String,
 }
 
-impl<Message> Window<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    pub fn new(header: WidgetData<Message>, content: WidgetData<Message>, title: String) -> Self {
+impl<State> Window<State> {
+    pub fn new(header: WidgetData<State>, content: WidgetData<State>, title: String) -> Self {
         Window {
             id: WidgetId::unique(),
             bounds: Rect::ZERO.to_rounded_rect(CORNER_RADIUS),
@@ -65,17 +58,14 @@ where
     pub fn set_title(&mut self, title: String) {
         self.title = title;
     }
-    pub fn header(&mut self) -> &mut WidgetData<Message> {
+    pub fn header(&mut self) -> &mut WidgetData<State> {
         &mut self.header
     }
-    pub fn content(&mut self) -> &mut WidgetData<Message> {
+    pub fn content(&mut self) -> &mut WidgetData<State> {
         &mut self.content
     }
 }
-impl<Message> Widget<Message> for Window<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Window<State> {
     fn debug_name(&self) -> &str {
         "window"
     }
@@ -579,10 +569,10 @@ where
     }
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
-        // TODO: Should we always send this message?
         event_cx.push_internal_message(InternalMessage::TitleChanged(self.title.clone()));
         if let WidgetEvent::Mouse(event::mouse::Event::Press { position, button }) = event {
             if button == MouseButton::Left && !self.bounds.contains(position) {
@@ -627,10 +617,10 @@ where
 
         event::Status::Ignored
     }
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         vec![&self.header, &self.content]
     }
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![&mut self.header, &mut self.content]
     }
     fn set_hover(&mut self, _hover: bool) -> event::Status {

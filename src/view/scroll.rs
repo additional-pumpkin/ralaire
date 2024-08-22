@@ -1,37 +1,31 @@
 use crate::view::View;
 use crate::widget::{self, WidgetData};
 
-pub fn scroll<Message>(child: impl View<Message>) -> Scroll<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+pub fn scroll<State>(child: impl View<State>) -> Scroll<State> {
     Scroll::new(Box::new(child))
 }
 
-pub struct Scroll<Message> {
-    child: Box<dyn View<Message>>,
+pub struct Scroll<State> {
+    child: Box<dyn View<State>>,
 }
 
-impl<Message> Scroll<Message> {
-    pub fn new(child: Box<dyn View<Message>>) -> Self {
+impl<State> Scroll<State> {
+    pub fn new(child: Box<dyn View<State>>) -> Self {
         Self { child }
     }
 }
 
-impl<Message> View<Message> for Scroll<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    fn build_widget(&self) -> WidgetData<Message> {
+impl<State: 'static> View<State> for Scroll<State> {
+    fn build_widget(&self) -> WidgetData<State> {
         let child = self.child.build_widget();
         let container = widget::Scroll::new(child);
         WidgetData::new(Box::new(container))
     }
 
-    fn change_widget(&self, _widget: &mut WidgetData<Message>) {}
+    fn change_widget(&self, _widget: &mut WidgetData<State>) {}
 
-    fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old).as_any().downcast_ref::<Scroll<Message>>().unwrap();
+    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
+        let old = (**old).as_any().downcast_ref::<Scroll<State>>().unwrap();
 
         // there is only one child...
         for child in widget.inner.children_mut() {

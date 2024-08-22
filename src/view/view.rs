@@ -1,13 +1,10 @@
 use crate::widget::WidgetData;
 use crate::AsAny;
 
-pub trait View<Message>: AsAny
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    fn build_widget(&self) -> WidgetData<Message>;
-    fn change_widget(&self, widget: &mut WidgetData<Message>);
-    fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>);
+pub trait View<State>: AsAny {
+    fn build_widget(&self) -> WidgetData<State>;
+    fn change_widget(&self, widget: &mut WidgetData<State>);
+    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>);
     fn get_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
@@ -20,18 +17,17 @@ macro_rules! view_seq {
     )};
 }
 
-pub struct ViewSequence<Message>(pub Vec<Box<dyn View<Message>>>);
+pub struct ViewSequence<State>(pub Vec<Box<dyn View<State>>>);
 
-impl<V, Message> From<Vec<V>> for ViewSequence<Message>
+impl<V, State> From<Vec<V>> for ViewSequence<State>
 where
-    Message: core::fmt::Debug + Clone + 'static,
-    V: View<Message>,
+    V: View<State>,
 {
     fn from(value: Vec<V>) -> Self {
         ViewSequence(
             value
                 .into_iter()
-                .map(|view| Box::new(view) as Box<dyn View<Message>>)
+                .map(|view| Box::new(view) as Box<dyn View<State>>)
                 .collect(),
         )
     }

@@ -17,22 +17,17 @@ impl ImageView {
     }
 }
 
-impl<Message> View<Message> for ImageView
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    fn build_widget(&self) -> WidgetData<Message> {
+impl<State: 'static> View<State> for ImageView {
+    fn build_widget(&self) -> WidgetData<State> {
         if let Ok(str) = str::from_utf8(&self.bytes) {
             if let Ok(svg) = usvg::Tree::from_str(str, &usvg::Options::default()) {
                 return WidgetData::new(Box::new(widget::Svg::new(svg)));
             }
-
         }
         WidgetData::new(Box::new(widget::Image::new(&self.bytes)))
-        
     }
 
-    fn change_widget(&self, widget_data: &mut WidgetData<Message>) {
+    fn change_widget(&self, widget_data: &mut WidgetData<State>) {
         (*widget_data.inner)
             .as_any_mut()
             .downcast_mut::<Text>()
@@ -41,14 +36,8 @@ where
         // widget_data.change_flags.needs_repaint = true;
     }
 
-    fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        if self.bytes
-            != (**old)
-                .as_any()
-                .downcast_ref::<ImageView>()
-                .unwrap()
-                .bytes
-        {
+    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
+        if self.bytes != (**old).as_any().downcast_ref::<ImageView>().unwrap().bytes {
             self.change_widget(widget)
         }
     }

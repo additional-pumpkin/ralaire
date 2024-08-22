@@ -4,33 +4,24 @@ use itertools::Itertools;
 use crate::view::View;
 use crate::widget::{self, FlexAxis, FlexChild, FlexDirection, WidgetData};
 
-pub fn flex<Message>(children: ViewSequence<Message>) -> Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+pub fn flex<State>(children: ViewSequence<State>) -> Flex<State> {
     let len = children.0.len();
     Flex::new(children, vec![None; len])
 }
 
 use super::ViewSequence;
-pub struct Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    children: ViewSequence<Message>,
+pub struct Flex<State> {
+    children: ViewSequence<State>,
     flex_factors: Vec<Option<f64>>,
     flex_direction: FlexDirection,
     // FIXME: How do flexboxes actually do spacing?
     spacing: f64,
 }
-impl<Message> Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State> Flex<State> {
     pub(crate) fn new(
-        children: ViewSequence<Message>,
+        children: ViewSequence<State>,
         flex_factors: Vec<Option<f64>>,
-    ) -> Flex<Message> {
+    ) -> Flex<State> {
         Flex {
             children,
             flex_factors,
@@ -47,11 +38,8 @@ where
         self
     }
 }
-impl<Message> View<Message> for Flex<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    fn build_widget(&self) -> WidgetData<Message> {
+impl<State: 'static> View<State> for Flex<State> {
+    fn build_widget(&self) -> WidgetData<State> {
         let children = self
             .children
             .0
@@ -73,10 +61,10 @@ where
         )))
     }
 
-    fn change_widget(&self, widget: &mut WidgetData<Message>) {
+    fn change_widget(&self, widget: &mut WidgetData<State>) {
         let flex = widget
             .as_any_mut()
-            .downcast_mut::<widget::Flex<Message>>()
+            .downcast_mut::<widget::Flex<State>>()
             .unwrap();
         let (flex_axis, direction_flipped) = match self.flex_direction {
             FlexDirection::Column => (FlexAxis::Vertical, false),
@@ -90,14 +78,14 @@ where
         widget.change_flags.needs_layout = true;
     }
 
-    fn reconciliate(&self, old: &Box<dyn View<Message>>, widget_data: &mut WidgetData<Message>) {
-        let old = (**old).as_any().downcast_ref::<Flex<Message>>().unwrap();
+    fn reconciliate(&self, old: &Box<dyn View<State>>, widget_data: &mut WidgetData<State>) {
+        let old = (**old).as_any().downcast_ref::<Flex<State>>().unwrap();
         if self.spacing != old.spacing || self.flex_direction != old.flex_direction {
             self.change_widget(widget_data)
         }
         let child_widgets = (*widget_data.inner)
             .as_any_mut()
-            .downcast_mut::<widget::Flex<Message>>()
+            .downcast_mut::<widget::Flex<State>>()
             .unwrap()
             .mut_children();
         let child_pairs = self

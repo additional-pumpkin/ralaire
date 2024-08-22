@@ -10,23 +10,20 @@ use vello::peniko::kurbo::{Circle, Point, Rect, Size};
 use vello::peniko::{Color, Fill};
 
 const SLIDER_HEIGHT: f64 = 50.;
-pub struct Slider<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+pub struct Slider<State> {
     // TODO: Support vertical sliders
     length: f64,
     pub(crate) value: f64, // from 0.0 to 1.0
-    pub(crate) on_change: Box<dyn Fn(f64) -> Message>,
+    pub(crate) on_change: Box<dyn Fn(&mut State, f64) + Send + Sync + 'static>,
     is_dragging: bool,
     hovered: bool,
 }
 
-impl<Message> Slider<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
-    pub fn new(value: f64, on_change: Box<dyn Fn(f64) -> Message>) -> Self {
+impl<State> Slider<State> {
+    pub fn new(
+        value: f64,
+        on_change: Box<dyn Fn(&mut State, f64) + Send + Sync + 'static>,
+    ) -> Self {
         Self {
             length: 0.,
             value,
@@ -37,10 +34,7 @@ where
     }
 }
 
-impl<Message> Widget<Message> for Slider<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Slider<State> {
     fn debug_name(&self) -> &str {
         "slider"
     }
@@ -80,11 +74,11 @@ where
         }
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         vec![]
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![]
     }
 
@@ -95,15 +89,17 @@ where
 
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(mouse_event) = event {
             match mouse_event {
                 mouse::Event::Move { position } => {
                     if self.is_dragging {
+                        (self.on_change)(state, position.x / self.length);
+                        event_cx.state_changed = true;
                         // Changing self.value is done by the user
-                        event_cx.push_user_message((self.on_change)(position.x / self.length));
                     }
                     return event::Status::Captured;
                 }
@@ -135,7 +131,6 @@ where
     }
     fn set_hover(&mut self, hover: bool) -> event::Status {
         self.hovered = hover;
-        tracing::debug!("Set hovered to {}", hover);
         event::Status::Captured
     }
 }

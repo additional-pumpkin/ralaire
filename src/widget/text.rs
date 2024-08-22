@@ -52,10 +52,7 @@ impl Text {
     }
 }
 
-impl<Message> Widget<Message> for Text
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Text {
     fn debug_name(&self) -> &str {
         "text"
     }
@@ -114,18 +111,19 @@ where
         Size::new(self.layout.width() as f64, self.layout.height() as f64)
     }
 
-    fn children(&self) -> Vec<&super::WidgetData<Message>> {
+    fn children(&self) -> Vec<&super::WidgetData<State>> {
         vec![]
     }
 
-    fn children_mut(&mut self) -> Vec<&mut super::WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut super::WidgetData<State>> {
         vec![]
     }
 
     fn event(
         &mut self,
+        _event_cx: &mut event::EventCx,
         _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         event::Status::Ignored
     }

@@ -4,20 +4,14 @@ use crate::view::View;
 use crate::widget::{self, WidgetData};
 
 use super::window_controls::WindowControls;
-pub struct Header<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    left: Option<Box<dyn View<Message>>>,
-    pub(crate) middle: Option<Box<dyn View<Message>>>,
-    right: Option<Box<dyn View<Message>>>,
-    window_controls: Box<dyn View<Message>>,
+pub struct Header<State> {
+    left: Option<Box<dyn View<State>>>,
+    pub(crate) middle: Option<Box<dyn View<State>>>,
+    right: Option<Box<dyn View<State>>>,
+    window_controls: Box<dyn View<State>>,
 }
 #[allow(dead_code)]
-impl<Message> Header<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Header<State> {
     pub fn new() -> Self {
         Self {
             left: None,
@@ -26,25 +20,22 @@ where
             window_controls: Box::new(WindowControls),
         }
     }
-    pub fn left(mut self, view: impl View<Message>) -> Self {
+    pub fn left(mut self, view: impl View<State>) -> Self {
         self.left = Some(Box::new(view));
         self
     }
-    pub fn middle(mut self, view: impl View<Message>) -> Self {
+    pub fn middle(mut self, view: impl View<State>) -> Self {
         self.middle = Some(Box::new(view));
         self
     }
-    pub fn right(mut self, view: impl View<Message>) -> Self {
+    pub fn right(mut self, view: impl View<State>) -> Self {
         self.right = Some(Box::new(view));
         self
     }
 }
 
-impl<Message> View<Message> for Header<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    fn build_widget(&self) -> WidgetData<Message> {
+impl<State: 'static> View<State> for Header<State> {
+    fn build_widget(&self) -> WidgetData<State> {
         let left = self.left.as_ref().map(|view| view.build_widget());
         let middle = self.middle.as_ref().map(|view| view.build_widget());
         let right = self.right.as_ref().map(|view| view.build_widget());
@@ -58,14 +49,14 @@ where
         )))
     }
 
-    fn change_widget(&self, _widget: &mut WidgetData<Message>) {}
+    fn change_widget(&self, _widget: &mut WidgetData<State>) {}
 
-    fn reconciliate(&self, old: &Box<dyn View<Message>>, widget: &mut WidgetData<Message>) {
-        let old = (**old).as_any().downcast_ref::<Header<Message>>().unwrap();
+    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
+        let old = (**old).as_any().downcast_ref::<Header<State>>().unwrap();
 
         let header = (*widget.inner)
             .as_any_mut()
-            .downcast_mut::<widget::Header<Message>>()
+            .downcast_mut::<widget::Header<State>>()
             .unwrap();
         // left
         if let Some(new_child) = &self.left {

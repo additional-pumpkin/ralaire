@@ -1,20 +1,21 @@
-use crate::{event, AsAny, WidgetId, WidgetIdPath};
+use crate::{event, AsAny};
 use parley::FontContext;
-use vello::peniko::kurbo::{Point, Rect, Size};
-pub trait Widget<Message>: AsAny
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+use vello::{
+    kurbo::Affine,
+    peniko::kurbo::{Point, Rect, Size},
+};
+pub trait Widget<State: 'static>: AsAny {
     fn layout(&mut self, suggested_size: Size, font_cx: &mut FontContext) -> Size;
     fn event(
         &mut self,
-        _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        event_cx: &mut event::EventCx,
+        event: event::WidgetEvent,
+        state: &mut State,
     ) -> event::Status;
     fn set_hover(&mut self, _hover: bool) -> event::Status;
     fn paint(&mut self, scene: &mut vello::Scene);
-    fn children(&self) -> Vec<&WidgetData<Message>>;
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>>;
+    fn children(&self) -> Vec<&WidgetData<State>>;
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>>;
     fn debug_name(&self) -> &str;
     fn bounds_tree(&self, id_path: WidgetIdPath, position: Point) -> Vec<(WidgetIdPath, Rect)> {
         let mut v = vec![];
@@ -37,21 +38,15 @@ pub struct ChangeFlags {
     pub needs_layout: bool,
     pub needs_paint: bool,
 }
-pub struct WidgetData<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+pub struct WidgetData<State> {
     pub(crate) id: WidgetId,
     pub(crate) position: Point,
     pub(crate) size: Size,
     pub(crate) change_flags: ChangeFlags,
     scene: vello::Scene,
-    pub(crate) inner: Box<dyn Widget<Message>>,
+    pub(crate) inner: Box<dyn Widget<State>>,
 }
-impl<Message> core::fmt::Debug for WidgetData<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+impl<State: 'static> core::fmt::Debug for WidgetData<State> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let widget_name = self.inner.debug_name();
         let display_name = format!(
@@ -71,11 +66,8 @@ where
     }
 }
 
-impl<Message> WidgetData<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
-    pub fn new(widget: Box<dyn Widget<Message>>) -> Self {
+impl<State: 'static> WidgetData<State> {
+    pub fn new(widget: Box<dyn Widget<State>>) -> Self {
         Self {
             id: WidgetId::unique(),
             position: Point::ZERO,
@@ -103,10 +95,49 @@ where
             self.scene.reset();
             self.inner.paint(&mut self.scene);
         }
-        let transform = vello::kurbo::Affine::translate(self.position.to_vec2());
+        let transform = Affine::translate(self.position.to_vec2());
         scene.append(&self.scene, Some(transform));
     }
     pub fn bounds_tree(&self, id_path: WidgetIdPath, position: Point) -> Vec<(WidgetIdPath, Rect)> {
         self.inner.bounds_tree(id_path, position)
+    }
+}
+
+use core::{
+    num::NonZeroU64,
+    sync::atomic::{AtomicU64, Ordering},
+};
+extern crate alloc;
+use alloc::vec::Vec;
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+pub struct WidgetId(NonZeroU64);
+
+pub type WidgetIdPath = Vec<WidgetId>;
+
+impl WidgetId {
+    pub fn unique() -> WidgetId {
+        static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+        WidgetId(NonZeroU64::new(WIDGET_ID_COUNTER.fetch_add(1, Ordering::Relaxed)).unwrap())
+    }
+
+    pub fn to_raw(self) -> u64 {
+        self.0.into()
+    }
+
+    pub fn to_nonzero_raw(self) -> NonZeroU64 {
+        self.0
+    }
+}
+
+impl core::fmt::Display for WidgetId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}", self.0))
+    }
+}
+
+impl core::fmt::Debug for WidgetId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("{}", self.0))
     }
 }

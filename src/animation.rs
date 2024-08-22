@@ -1,9 +1,8 @@
-use crate::AnimationId;
 use core::{
     f64::consts::PI,
     sync::atomic::{AtomicU64, Ordering},
 };
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct Animation {
@@ -268,5 +267,23 @@ impl PartialEq<Animation> for Animation {
             && self.duration == other.duration
             && self.direction == other.direction
             && self.easing_curve == other.easing_curve
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
+pub struct AnimationId(NonZeroU64);
+
+impl AnimationId {
+    pub fn unique() -> AnimationId {
+        static ANIMATION_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+        AnimationId(NonZeroU64::new(ANIMATION_ID_COUNTER.fetch_add(1, Ordering::Relaxed)).unwrap())
+    }
+
+    pub fn to_raw(self) -> u64 {
+        self.0.into()
+    }
+
+    pub fn to_nonzero_raw(self) -> NonZeroU64 {
+        self.0
     }
 }

@@ -16,28 +16,20 @@ pub enum Status {
     Ignored,
     Captured,
 }
-pub struct EventCx<Message> {
+pub struct EventCx {
     pub repaint_needed: bool,
-    user_messages: Vec<Message>,
+    pub state_changed: bool,
     internal_messages: Vec<InternalMessage>,
     cursor: CursorIcon,
 }
-impl<Message> EventCx<Message> {
+impl EventCx {
     pub fn new() -> Self {
         EventCx {
             repaint_needed: false,
-            user_messages: vec![],
+            state_changed: false,
             internal_messages: vec![],
             cursor: CursorIcon::Default,
         }
-    }
-
-    pub fn drain_user_messages(&mut self) -> Drain<Message> {
-        self.user_messages.drain(..)
-    }
-
-    pub fn push_user_message(&mut self, message: Message) {
-        self.user_messages.push(message)
     }
 
     pub fn drain_internal_messages(&mut self) -> Drain<InternalMessage> {
@@ -175,7 +167,7 @@ pub fn window_event(
 
     match event {
         WindowEvent::RedrawRequested => Some(window::Event::RedrawRequested),
-        WindowEvent::Resized(new_size) => Some(window::Event::Resized((*new_size).into())),
+        WindowEvent::Resized(new_size) => Some(window::Event::Resized(*new_size)),
         WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
             Some(window::Event::ScaleFactorChanged(*scale_factor))
         }

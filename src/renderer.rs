@@ -1,27 +1,25 @@
 use std::sync::Arc;
-
-use crate::WindowSize;
 use vello::peniko::kurbo::Affine;
 extern crate alloc;
 
 pub struct RenderEngine<'a> {
-    size: WindowSize,
+    width: u32,
+    height: u32,
     render_cx: vello::util::RenderContext,
     surface: vello::util::RenderSurface<'a>,
     renderer: vello::Renderer,
 }
 
 impl<'a> RenderEngine<'a> {
-    pub async fn new(window: Arc<winit::window::Window>, size: WindowSize) -> RenderEngine<'a> {
+    pub async fn new(
+        window: Arc<winit::window::Window>,
+        width: u32,
+        height: u32,
+    ) -> RenderEngine<'a> {
         let window = Arc::new(window);
         let mut render_cx = vello::util::RenderContext::new();
         let surface = render_cx
-            .create_surface(
-                window.clone(),
-                size.width,
-                size.height,
-                wgpu::PresentMode::Mailbox,
-            )
+            .create_surface(window.clone(), width, height, wgpu::PresentMode::Mailbox)
             .await
             .unwrap();
         let renderer = vello::Renderer::new(
@@ -36,7 +34,8 @@ impl<'a> RenderEngine<'a> {
         .unwrap();
 
         RenderEngine {
-            size,
+            width,
+            height,
             render_cx,
             surface,
             renderer,
@@ -47,8 +46,8 @@ impl<'a> RenderEngine<'a> {
         let base_color = vello::peniko::Color::TRANSPARENT;
         let render_params = vello::RenderParams {
             base_color,
-            width: self.size.width,
-            height: self.size.height,
+            width: self.width,
+            height: self.height,
             antialiasing_method: vello::AaConfig::Area,
         };
         let mut scene = vello::Scene::new();
@@ -76,9 +75,10 @@ impl<'a> RenderEngine<'a> {
         surface_texture.present();
     }
 
-    pub fn resize(&mut self, new_size: WindowSize) {
-        self.size = new_size;
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
         self.render_cx
-            .resize_surface(&mut self.surface, new_size.width, new_size.height)
+            .resize_surface(&mut self.surface, width, height)
     }
 }

@@ -1,26 +1,20 @@
 use crate::{view::View, widget::RootWidget};
 
-pub struct RootView<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    child: Box<dyn View<Message>>,
+pub struct RootView<State> {
+    child: Box<dyn View<State>>,
 }
 
-impl<Message> RootView<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
-    pub fn new(child: Box<dyn View<Message>>) -> Self {
+impl<State: 'static> RootView<State> {
+    pub fn new(child: Box<dyn View<State>>) -> Self {
         Self { child }
     }
 
-    pub fn build_widget(&self) -> RootWidget<Message> {
+    pub fn build_widget(&self) -> RootWidget<State> {
         let child = self.child.build_widget();
         RootWidget::new(child)
     }
 
-    pub fn reconciliate(&self, old: &RootView<Message>, root_widget: &mut RootWidget<Message>) {
+    pub fn reconciliate(&self, old: &RootView<State>, root_widget: &mut RootWidget<State>) {
         if self.child.as_any().type_id() == old.child.as_any().type_id() {
             self.child.reconciliate(&old.child, root_widget.child());
         } else {

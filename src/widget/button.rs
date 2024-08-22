@@ -1,37 +1,28 @@
-use crate::widget::Container;
+use crate::event::{self, mouse::MouseButton};
 use crate::widget::Widget;
-use crate::{
-    alignment,
-    event::{self, mouse::MouseButton},
-};
+use crate::widget::{alignment, Container};
 use parley::FontContext;
 use vello::peniko::kurbo::{Affine, Point, Rect, RoundedRectRadii, Size};
 use vello::peniko::{Color, Fill};
 
 use super::WidgetData;
 
-pub struct Button<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+pub struct Button<State> {
     pub(crate) size: Size,
     pub(crate) radii: RoundedRectRadii,
     pub(crate) color: Color,
-    pub(crate) on_press: Option<Message>,
-    child: Container<Message>,
+    pub(crate) on_press: Option<Box<dyn Fn(&mut State) + Send + Sync + 'static>>,
+    child: Container<State>,
     hovered: bool,
 }
 
-impl<Message> Button<Message>
-where
-    Message: Clone + core::fmt::Debug + 'static,
-{
+impl<State> Button<State> {
     pub fn new(
-        child: WidgetData<Message>,
+        child: WidgetData<State>,
         size: Size,
         radii: RoundedRectRadii,
         color: Color,
-        on_press: Option<Message>,
+        on_press: Option<Box<dyn Fn(&mut State) + Send + Sync + 'static>>,
     ) -> Self {
         let child = Container::new(
             child,
@@ -50,10 +41,7 @@ where
     }
 }
 
-impl<Message> Widget<Message> for Button<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Button<State> {
     fn debug_name(&self) -> &str {
         "button"
     }
@@ -77,11 +65,11 @@ where
         self.child.paint(scene);
     }
 
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         self.child.children()
     }
 
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         self.child.children_mut()
     }
 
@@ -92,8 +80,9 @@ where
 
     fn event(
         &mut self,
+        event_cx: &mut event::EventCx,
         event: event::WidgetEvent,
-        event_cx: &mut event::EventCx<Message>,
+        state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(event::mouse::Event::Press {
             position: _,
@@ -101,8 +90,9 @@ where
         }) = event
         {
             if button == MouseButton::Left {
-                if let Some(messsage) = &self.on_press {
-                    event_cx.push_user_message(messsage.clone());
+                if let Some(on_press) = &self.on_press {
+                    (on_press)(state);
+                    event_cx.state_changed = true;
                 }
                 return event::Status::Captured;
             }
@@ -111,7 +101,6 @@ where
     }
     fn set_hover(&mut self, hover: bool) -> event::Status {
         self.hovered = hover;
-        tracing::debug!("Set hovered to {}", hover);
         event::Status::Captured
     }
 }

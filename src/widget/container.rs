@@ -1,28 +1,35 @@
 use crate::widget::Widget;
-use crate::{alignment, event, Padding};
-
+use crate::widget::WidgetData;
+use crate::{event, Padding};
 use parley::FontContext;
 use vello::kurbo::{Point, Size};
 
-use super::WidgetData;
+pub mod alignment {
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub enum Horizontal {
+        Left,
+        Center,
+        Right,
+    }
 
-pub struct Container<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub enum Vertical {
+        Top,
+        Center,
+        Bottom,
+    }
+}
+pub struct Container<State> {
     size: Size,
     pub(crate) h_alignment: alignment::Horizontal,
     pub(crate) v_alignment: alignment::Vertical,
     pub(crate) padding: Padding,
-    child: WidgetData<Message>,
+    child: WidgetData<State>,
 }
 
-impl<Message> Container<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State> Container<State> {
     pub fn new(
-        child: WidgetData<Message>,
+        child: WidgetData<State>,
         h_alignment: alignment::Horizontal,
         v_alignment: alignment::Vertical,
         padding: Padding,
@@ -37,20 +44,17 @@ where
     }
 }
 
-impl<Message> Widget<Message> for Container<Message>
-where
-    Message: core::fmt::Debug + Clone + 'static,
-{
+impl<State: 'static> Widget<State> for Container<State> {
     fn paint(&mut self, scene: &mut vello::Scene) {
         self.child.paint(scene);
     }
     fn debug_name(&self) -> &str {
         "container"
     }
-    fn children(&self) -> Vec<&WidgetData<Message>> {
+    fn children(&self) -> Vec<&WidgetData<State>> {
         vec![&self.child]
     }
-    fn children_mut(&mut self) -> Vec<&mut WidgetData<Message>> {
+    fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![&mut self.child]
     }
     fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
@@ -86,8 +90,9 @@ where
 
     fn event(
         &mut self,
+        _event_cx: &mut event::EventCx,
         _event: event::WidgetEvent,
-        _event_cx: &mut event::EventCx<Message>,
+        _state: &mut State,
     ) -> event::Status {
         event::Status::Ignored
     }
