@@ -1,28 +1,32 @@
-use crate::view::View;
-use crate::widget::{self, WidgetData};
+use std::marker::PhantomData;
+
+use crate::view::{View, ViewMarker};
+use crate::widget::{self, Widget};
 use vello::peniko::kurbo::{RoundedRectRadii, Size};
 use vello::peniko::Color;
 
-pub fn button<State>(child: impl View<State>) -> Button<State> {
-    Button::new(Box::new(child))
+pub fn button<State, Child>(child: Child) -> Button<State, Child> {
+    Button::new(child)
 }
 
-pub struct Button<State> {
+pub struct Button<State, Child> {
     size: Size,
     radii: RoundedRectRadii,
     color: Color,
     on_press: Option<fn(&mut State)>,
-    child: Box<dyn View<State>>,
+    child: Child,
+    phantom_data: PhantomData<State>,
 }
 
-impl<State> Button<State> {
-    pub fn new(child: Box<dyn View<State>>) -> Self {
+impl<State, Child> Button<State, Child> {
+    pub fn new(child: Child) -> Self {
         Self {
             size: Size::new(60. * 1.5, 23. * 1.5),
             radii: 10.0.into(),
             color: Color::LIGHT_GRAY,
             on_press: None,
             child,
+            phantom_data: PhantomData,
         }
     }
     pub fn radius(mut self, radius: f64) -> Self {
@@ -39,47 +43,55 @@ impl<State> Button<State> {
     }
 }
 
-impl<State: 'static> View<State> for Button<State> {
-    fn build_widget(&self) -> WidgetData<State> {
-        let child = self.child.build_widget();
-        let button: widget::Button<State> = widget::Button::new(
+impl<State, Child> ViewMarker for Button<State, Child> {}
+
+impl<State: 'static, Child: View<State>> View<State> for Button<State, Child>
+where
+    Child::Element: Widget<State>,
+{
+    type Element = widget::Button<State>;
+    fn build(&self) -> Self::Element {
+        let child = self.child.build();
+        widget::Button::new(
             child,
             self.size,
             self.radii,
             self.color,
             self.on_press
                 .map(|f| Box::new(f.clone()) as Box<dyn Fn(&mut State) + Send + Sync + 'static>),
-        );
-        WidgetData::new(Box::new(button))
+        )
     }
 
-    fn change_widget(&self, widget_data: &mut WidgetData<State>) {
-        let button = (*widget_data.inner)
-            .as_any_mut()
-            .downcast_mut::<widget::Button<State>>()
-            .unwrap();
-        if button.size != self.size {
-            button.size = self.size;
-            widget_data.change_flags.needs_layout = true;
-        }
-        button.color = self.color;
-        button.radii = self.radii;
-        widget_data.change_flags.needs_paint = true;
-        button.on_press = self
-            .on_press
-            .map(|f| Box::new(f.clone()) as Box<dyn Fn(&mut State) + Send + Sync + 'static>);
-    }
-
-    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
-        let old = (**old).as_any().downcast_ref::<Button<State>>().unwrap();
-        if self.size != old.size || self.color != old.color || self.radii != old.radii
-        // || self.on_press != old.on_press
-        {
-            self.change_widget(widget)
+    fn rebuild(&self, old: &Self, element: &mut Self::Element) {
+        if self.size != old.size || self.color != old.color || self.radii != old.radii {
+            if element.size != self.size {
+                element.size = self.size;
+            }
+            element.color = self.color;
+            element.radii = self.radii;
+            element.on_press = self
+                .on_press
+                .map(|f| Box::new(f.clone()) as Box<dyn Fn(&mut State) + Send + Sync + 'static>);
         }
         // there is only one child...
-        for child in widget.inner.children_mut() {
-            self.child.reconciliate(&old.child, child)
+        for child in element.children_mut() {
+            self.child.rebuild(
+                &old.child,
+                (*child.inner)
+                    .as_any_mut()
+                    .downcast_mut::<Child::Element>()
+                    .unwrap(),
+            )
+        }
+    }
+    fn teardown(&self, element: &mut Self::Element) {
+        for child in element.children_mut() {
+            self.child.teardown(
+                (*child.inner)
+                    .as_any_mut()
+                    .downcast_mut::<Child::Element>()
+                    .unwrap(),
+            )
         }
     }
 }

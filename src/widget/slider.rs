@@ -1,9 +1,8 @@
-use super::WidgetData;
 use crate::event::{
     self,
     mouse::{self, MouseButton},
 };
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetData, WidgetMarker};
 use parley::FontContext;
 use vello::kurbo::Affine;
 use vello::peniko::kurbo::{Circle, Point, Rect, Size};
@@ -34,6 +33,7 @@ impl<State> Slider<State> {
     }
 }
 
+impl<State> WidgetMarker for Slider<State> {}
 impl<State: 'static> Widget<State> for Slider<State> {
     fn debug_name(&self) -> &str {
         "slider"
@@ -64,7 +64,7 @@ impl<State: 'static> Widget<State> for Slider<State> {
             scene.fill(
                 Fill::NonZero,
                 Affine::default(),
-                Color::BLACK.with_alpha_factor(0.3),
+                Color::BLACK.multiply_alpha(0.3),
                 None,
                 &Circle::new(
                     Point::new(self.value * self.length, SLIDER_HEIGHT / 4.),
@@ -82,14 +82,17 @@ impl<State: 'static> Widget<State> for Slider<State> {
         vec![]
     }
 
-    fn layout(&mut self, size_hint: Size, _font_cx: &mut FontContext) -> Size {
-        self.length = size_hint.width;
+    fn layout(&mut self, suggested_size: Size, _font_context: &mut FontContext) -> Size {
+        if !suggested_size.is_finite() {
+            panic!("FIXME: size is infinite");
+        }
+        self.length = suggested_size.width;
         Size::new(self.length, SLIDER_HEIGHT)
     }
 
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
         state: &mut State,
     ) -> event::Status {
@@ -98,7 +101,7 @@ impl<State: 'static> Widget<State> for Slider<State> {
                 mouse::Event::Move { position } => {
                     if self.is_dragging {
                         (self.on_change)(state, position.x / self.length);
-                        event_cx.state_changed = true;
+                        event_context.state_changed = true;
                         // Changing self.value is done by the user
                     }
                     return event::Status::Captured;

@@ -1,17 +1,19 @@
-use ralaire::application::Application;
-use ralaire::view::{image, scroll};
-use ralaire::view::{window, View};
+use ralaire::app::App;
+use ralaire::app::WidgetView;
+use ralaire::view::image;
+use ralaire::view::window;
 
-fn app_logic(_: &mut ()) -> impl View<()> {
-    window(scroll(image(
-        include_bytes!("../assets/paris-30k.svg").into(),
-    )))
-    .title("Image")
+fn app_logic(_: &mut ()) -> impl WidgetView<()> {
+    window(
+        image(include_bytes!("../assets/lain.png").into()),
+        "Image".to_owned(),
+    )
 }
 fn main() -> Result<(), winit::error::EventLoopError> {
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_file(true)
+        .with_line_number(true)
         .init();
-    let app = Application::new((), app_logic);
-    app.run()
+    App::new((), app_logic).run()
 }

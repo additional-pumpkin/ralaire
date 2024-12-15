@@ -1,20 +1,20 @@
-use crate::view::View;
-use crate::widget::{self, alignment, WidgetData};
+use crate::view::{View, ViewMarker};
+use crate::widget::{self, alignment, Widget};
 use crate::Padding;
 
-pub fn container<State>(child: impl View<State>) -> Container<State> {
-    Container::new(Box::new(child))
+pub fn container<Child>(child: Child) -> Container<Child> {
+    Container::new(child)
 }
 
-pub struct Container<State> {
+pub struct Container<Child> {
     h_alignment: alignment::Horizontal,
     v_alignment: alignment::Vertical,
     padding: Padding,
-    child: Box<dyn View<State>>,
+    child: Child,
 }
 
-impl<State> Container<State> {
-    pub fn new(child: Box<dyn View<State>>) -> Self {
+impl<Child> Container<Child> {
+    pub fn new(child: Child) -> Self {
         Self {
             h_alignment: alignment::Horizontal::Center,
             v_alignment: alignment::Vertical::Center,
@@ -35,37 +35,49 @@ impl<State> Container<State> {
         self
     }
 }
+impl<Child> ViewMarker for Container<Child> {}
 
-impl<State: 'static> View<State> for Container<State> {
-    fn build_widget(&self) -> WidgetData<State> {
-        let child = self.child.build_widget();
+impl<State: 'static, Child: View<State>> View<State> for Container<Child>
+where
+    Child::Element: Widget<State>,
+{
+    type Element = widget::Container<State>;
+    fn build(&self) -> Self::Element {
+        let child = self.child.build();
         let container =
             widget::Container::new(child, self.h_alignment, self.v_alignment, self.padding);
-        WidgetData::new(Box::new(container))
+        container
     }
 
-    fn change_widget(&self, widget_data: &mut WidgetData<State>) {
-        let container = (*widget_data.inner)
-            .as_any_mut()
-            .downcast_mut::<widget::Container<State>>()
-            .unwrap();
-        container.h_alignment = self.h_alignment;
-        container.v_alignment = self.v_alignment;
-        container.padding = self.padding;
-        widget_data.change_flags.needs_layout = true;
-    }
-
-    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
-        let old = (**old).as_any().downcast_ref::<Container<State>>().unwrap();
+    fn rebuild(&self, old: &Self, element: &mut Self::Element) {
         if self.h_alignment != old.h_alignment
             || self.v_alignment != old.v_alignment
             || self.padding != old.padding
         {
-            self.change_widget(widget)
+            element.h_alignment = self.h_alignment;
+            element.v_alignment = self.v_alignment;
+            element.padding = self.padding;
         }
         // there is only one child...
-        for child in widget.inner.children_mut() {
-            self.child.reconciliate(&old.child, child)
+        for child in element.children_mut() {
+            self.child.rebuild(
+                &old.child,
+                (*child.inner)
+                    .as_any_mut()
+                    .downcast_mut::<Child::Element>()
+                    .unwrap(),
+            )
+        }
+    }
+
+    fn teardown(&self, element: &mut Self::Element) {
+        for child in element.children_mut() {
+            self.child.teardown(
+                (*child.inner)
+                    .as_any_mut()
+                    .downcast_mut::<Child::Element>()
+                    .unwrap(),
+            )
         }
     }
 }

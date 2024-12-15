@@ -1,6 +1,5 @@
-use super::{window_button::WindowButtonWidget, Container, Svg, WidgetData};
 use crate::widget::alignment;
-use crate::widget::Widget;
+use crate::widget::{Container, Svg, Widget, WidgetData, WidgetMarker, WindowButtonWidget};
 use crate::{event, InternalMessage};
 use parley::FontContext;
 use vello::peniko::kurbo::{Point, Size};
@@ -22,6 +21,7 @@ pub struct WindowControls<State: 'static> {
 
 impl<State: 'static> WindowControls<State> {
     pub fn new() -> Self {
+        tracing::warn!("Creating window control buttons!!");
         let close_svg = usvg::Tree::from_str(
             include_str!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -46,33 +46,26 @@ impl<State: 'static> WindowControls<State> {
             &usvg::Options::default(),
         )
         .unwrap();
-        let close_icon = WidgetData::new(Box::new(Svg::new(close_svg)));
-        let close_button = WidgetData::new(Box::new(WindowButtonWidget::new(
-            close_icon,
-            InternalMessage::CloseWindow,
-        )));
+        let close_icon = Svg::new(close_svg);
+        let close_button = WindowButtonWidget::new(close_icon, InternalMessage::CloseWindow);
         let close_button = WidgetData::new(Box::new(Container::new(
             close_button,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
             0.0.into(),
         )));
-        let maximise_icon = WidgetData::new(Box::new(Svg::new(maximize_svg)));
-        let maximise_button = WidgetData::new(Box::new(WindowButtonWidget::new(
-            maximise_icon,
-            InternalMessage::MaximiseWindow,
-        )));
+        let maximise_icon = Svg::new(maximize_svg);
+        let maximise_button =
+            WindowButtonWidget::new(maximise_icon, InternalMessage::MaximiseWindow);
         let maximise_button = WidgetData::new(Box::new(Container::new(
             maximise_button,
             alignment::Horizontal::Center,
             alignment::Vertical::Center,
             0.0.into(),
         )));
-        let minimise_icon = WidgetData::new(Box::new(Svg::new(minimize_svg)));
-        let minimise_button = WidgetData::new(Box::new(WindowButtonWidget::new(
-            minimise_icon,
-            InternalMessage::MinimiseWindow,
-        )));
+        let minimise_icon = Svg::new(minimize_svg);
+        let minimise_button =
+            WindowButtonWidget::new(minimise_icon, InternalMessage::MinimiseWindow);
         let minimise_button = WidgetData::new(Box::new(Container::new(
             minimise_button,
             alignment::Horizontal::Center,
@@ -85,15 +78,16 @@ impl<State: 'static> WindowControls<State> {
     }
 }
 
+impl<State> WidgetMarker for WindowControls<State> {}
 impl<State: 'static> Widget<State> for WindowControls<State> {
     fn debug_name(&self) -> &str {
         "window_controls"
     }
-    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
+    fn layout(&mut self, _: Size, font_context: &mut FontContext) -> Size {
         let button_size_hint = Size::new(WINDOW_CONTROLS_WIDTH / 3., WINDOW_CONTROLS_HEIGHT);
         let number_of_buttons = self.buttons.len();
         for (idx, button) in self.buttons.iter_mut().enumerate() {
-            button.size = button.layout(button_size_hint, font_cx);
+            button.size = button.layout(button_size_hint, font_context);
             button.position = Point::new(
                 WINDOW_CONTROLS_WIDTH * (number_of_buttons - 1 - idx) as f64
                     / number_of_buttons as f64,
@@ -115,7 +109,7 @@ impl<State: 'static> Widget<State> for WindowControls<State> {
     }
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {

@@ -1,72 +1,85 @@
 use crate::{
-    view::View,
-    widget::{self, WidgetData},
+    view::{container, Container, Header, View},
+    widget::{self, Widget},
 };
 
-use super::{container::Container, Header};
-
-pub fn window<State: 'static>(child: impl View<State>) -> Window<State> {
-    Window::new(Box::new(Header::new()), Box::new(child))
+// TODO: Come up with better names
+pub fn window<Content>(
+    content: Content,
+    title: String,
+) -> Window<String, Container<String>, String, Content> {
+    let header = Header::new(
+        "left".to_owned(),
+        container(title.clone()),
+        "right".to_owned(),
+    );
+    Window::new(header, content, title)
 }
-
-pub struct Window<State> {
-    header: Box<dyn View<State>>,
-    content: Box<dyn View<State>>,
+pub struct Window<Left, Middle, Right, Content> {
+    header: Header<Left, Middle, Right>,
+    content: Content,
     title: String,
 }
 
-impl<State: 'static> Window<State> {
-    pub fn new(header: Box<dyn View<State>>, content: Box<dyn View<State>>) -> Self {
+impl<Left, Middle, Right, Content> Window<Left, Middle, Right, Content> {
+    pub fn new(header: Header<Left, Middle, Right>, content: Content, title: String) -> Self {
         Self {
             header,
             content,
-            title: String::default(),
+            title,
         }
-    }
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        let title = title.into();
-        self.header
-            .as_any_mut()
-            .downcast_mut::<Header<State>>()
-            .unwrap()
-            .middle = Some(Box::new(Container::new(Box::new(title.clone()))));
-        self.title = title;
-        self
     }
 }
-impl<State: 'static> View<State> for Window<State> {
-    fn build_widget(&self) -> WidgetData<State> {
-        let header = self.header.build_widget();
-        let content = self.content.build_widget();
-        WidgetData::new(Box::new(widget::Window::new(
-            header,
-            content,
-            self.title.clone(),
-        )))
+impl<State: 'static, Left, Middle, Right, Content> View<State>
+    for Window<Left, Middle, Right, Content>
+where
+    Left: View<State>,
+    Middle: View<State>,
+    Right: View<State>,
+    Content: View<State>,
+    Left::Element: Widget<State>,
+    Middle::Element: Widget<State>,
+    Right::Element: Widget<State>,
+    Content::Element: Widget<State>,
+{
+    type Element = widget::Window<State>;
+    fn build(&self) -> Self::Element {
+        let header = self.header.build();
+        let content = self.content.build();
+        widget::Window::new(header, content, self.title.clone())
     }
-    fn change_widget(&self, widget: &mut crate::widget::WidgetData<State>) {
-        dbg!();
-        (*widget.inner)
-            .as_any_mut()
-            .downcast_mut::<widget::Window<State>>()
-            .unwrap()
-            .set_title(self.title.clone());
-    }
-    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
-        let old = (**old).as_any().downcast_ref::<Window<State>>().unwrap();
+    fn rebuild(&self, old: &Self, element: &mut Self::Element) {
         if self.title != old.title {
-            self.change_widget(widget)
+            element.title.clone_from(&self.title);
         }
-        let widget = (*widget.inner)
-            .as_any_mut()
-            .downcast_mut::<widget::Window<State>>()
-            .unwrap();
-        self.header.reconciliate(&old.header, widget.header());
-        if self.content.as_any().type_id() == old.content.as_any().type_id() {
-            self.content.reconciliate(&old.content, widget.content());
-        } else {
-            let new_content = self.content.build_widget();
-            *widget.content() = new_content;
-        }
+        self.header.rebuild(
+            &old.header,
+            (*element.header.inner)
+                .as_any_mut()
+                .downcast_mut::<widget::Header<State>>()
+                .unwrap(),
+        );
+        self.content.rebuild(
+            &old.content,
+            (*element.content.inner)
+                .as_any_mut()
+                .downcast_mut::<Content::Element>()
+                .unwrap(),
+        );
+    }
+
+    fn teardown(&self, element: &mut Self::Element) {
+        self.header.teardown(
+            (*element.header.inner)
+                .as_any_mut()
+                .downcast_mut::<widget::Header<State>>()
+                .unwrap(),
+        );
+        self.content.teardown(
+            (*element.content.inner)
+                .as_any_mut()
+                .downcast_mut::<Content::Element>()
+                .unwrap(),
+        );
     }
 }

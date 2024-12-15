@@ -17,11 +17,11 @@ winit = { version = "0.30.3", default-features = false, features = [
     "rwh_06",
     "wayland",
 ] }
-wgpu = "0.20.0"
+wgpu = "22.1.0"
 vello = { path = "../vello/vello" }
 vello_svg = { path = "../vello_svg" }
-parley = { git = "https://github.com/dfrg/parley" }
+parley = { path = "../parley/parley" }
 rayon = "1.8.0"
 itertools = "0.13.0"
-image = "0.25.1"
+image = "0.25.4"
 rand = "0.8.5"

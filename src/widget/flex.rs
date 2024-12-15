@@ -1,6 +1,5 @@
-use super::WidgetData;
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetData, WidgetMarker};
 use parley::FontContext;
 use vello::kurbo::{Point, Size};
 
@@ -17,21 +16,32 @@ pub enum FlexAxis {
     Horizontal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CrossAxisAlignment {
     Start,
-    Center,
     End,
+    Center,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum JustifyContent {
+    Start,
+    End,
+    Center,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
 }
 
 pub struct FlexChild<State> {
     pub widget: WidgetData<State>,
     pub flex_factor: Option<f64>,
+    pub cross_axis_alignment: Option<CrossAxisAlignment>,
 }
 pub struct Flex<State> {
-    pub(crate) spacing: f64,
     pub(crate) main_axis: FlexAxis,
     pub(crate) direction_flipped: bool,
     pub(crate) cross_axis_alignment: CrossAxisAlignment,
+    pub(crate) justify_content: JustifyContent,
     children: Vec<FlexChild<State>>,
 }
 
@@ -39,7 +49,8 @@ impl<State> Flex<State> {
     pub fn new(
         children: Vec<FlexChild<State>>,
         flex_direction: FlexDirection,
-        spacing: f64,
+        cross_axis_alignment: CrossAxisAlignment,
+        justify_content: JustifyContent,
     ) -> Self {
         let (main_axis, direction_flipped) = match flex_direction {
             FlexDirection::Column => (FlexAxis::Vertical, false),
@@ -48,19 +59,26 @@ impl<State> Flex<State> {
             FlexDirection::RowReversed => (FlexAxis::Horizontal, true),
         };
         Self {
-            spacing,
-            children,
             main_axis,
-            cross_axis_alignment: CrossAxisAlignment::Center,
             direction_flipped,
+            cross_axis_alignment,
+            justify_content,
+            children,
         }
     }
-    pub fn set_flex_direction(&mut self, _flex_direction: FlexDirection) {}
-    pub fn mut_children(&mut self) -> &mut Vec<FlexChild<State>> {
-        &mut self.children
+    pub fn insert_child(&mut self, idx: usize, child: FlexChild<State>) {
+        self.children.insert(idx, child);
     }
+    pub fn remove_child(&mut self, idx: usize) {
+        self.children.remove(idx);
+    }
+    pub fn mutate_child(&mut self, idx: usize) -> &mut FlexChild<State> {
+        self.children.get_mut(idx).unwrap()
+    }
+    pub fn set_flex_direction(&mut self, _flex_direction: FlexDirection) {}
 }
 
+impl<State> WidgetMarker for Flex<State> {}
 impl<State: 'static> Widget<State> for Flex<State> {
     fn debug_name(&self) -> &str {
         "flexbox"
@@ -82,22 +100,26 @@ impl<State: 'static> Widget<State> for Flex<State> {
             .collect()
     }
 
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        if !suggested_size.is_finite() {
+            panic!("FIXME: size is infinite");
+        }
         let (main_axis_size, cross_axis_size) = match self.main_axis {
-            FlexAxis::Horizontal => (size_hint.width, size_hint.height),
-            FlexAxis::Vertical => (size_hint.height, size_hint.width),
+            FlexAxis::Horizontal => (suggested_size.width, suggested_size.height),
+            FlexAxis::Vertical => (suggested_size.height, suggested_size.width),
         };
-        let total_spacing = (self.children.len() + 1) as f64 * self.spacing;
-        let mut main_axis_off = self.spacing;
+        let mut main_axis_off = 0.;
         let mut sizes = vec![];
         let mut total_fixed_main_axis = 0.;
         let mut total_flex_main_axis = 0.;
+        let mut no_flex_children = true;
         for child in self.children.iter_mut() {
-            let child_size = child.widget.layout(size_hint, font_cx);
+            let child_size = child.widget.layout(suggested_size, font_context);
             sizes.push(child_size);
             match self.main_axis {
                 FlexAxis::Horizontal => match child.flex_factor {
                     Some(flex_factor) => {
+                        no_flex_children = false;
                         total_flex_main_axis += flex_factor;
                     }
                     None => {
@@ -106,6 +128,7 @@ impl<State: 'static> Widget<State> for Flex<State> {
                 },
                 FlexAxis::Vertical => match child.flex_factor {
                     Some(flex_factor) => {
+                        no_flex_children = false;
                         total_flex_main_axis += flex_factor;
                     }
                     None => {
@@ -114,17 +137,48 @@ impl<State: 'static> Widget<State> for Flex<State> {
                 },
             }
         }
-        let flexible_space = main_axis_size - total_fixed_main_axis - total_spacing;
+        let flexible_space = main_axis_size - total_fixed_main_axis;
         let flex_unit_main_axis = flexible_space / total_flex_main_axis as f64;
+        let justify_space = if no_flex_children {
+            let free_space = main_axis_size - total_fixed_main_axis;
+            match self.justify_content {
+                JustifyContent::Start => 0.,
+                JustifyContent::End => {
+                    main_axis_off = free_space;
+                    0.
+                }
+                JustifyContent::Center => {
+                    main_axis_off = (free_space) / 2.;
+                    0.
+                }
+                JustifyContent::SpaceBetween => free_space / (self.children.len() as f64 - 1.0),
+                JustifyContent::SpaceAround => {
+                    main_axis_off = (free_space / (self.children.len() as f64)) / 2.;
+                    free_space / (self.children.len() as f64)
+                }
+                JustifyContent::SpaceEvenly => {
+                    main_axis_off = free_space / (self.children.len() as f64 + 1.);
+                    main_axis_off
+                }
+            }
+        } else {
+            0.
+        };
         for (child, size) in self.children.iter_mut().zip(sizes.clone()) {
             let child_size;
             match self.main_axis {
                 FlexAxis::Horizontal => {
-                    let cross_axis_offset = match self.cross_axis_alignment {
+                    let cross_axis_alignment = if let Some(a) = child.cross_axis_alignment {
+                        a
+                    } else {
+                        self.cross_axis_alignment
+                    };
+                    let cross_axis_offset = match cross_axis_alignment {
                         CrossAxisAlignment::Start => 0.0,
                         CrossAxisAlignment::Center => (cross_axis_size - size.height) / 2.0,
                         CrossAxisAlignment::End => cross_axis_size - size.height,
                     };
+
                     if self.direction_flipped {
                         child.widget.position = Point::new(
                             main_axis_size - main_axis_off - size.width,
@@ -141,7 +195,12 @@ impl<State: 'static> Widget<State> for Flex<State> {
                     child_size = Size::new(child_width, size.height);
                 }
                 FlexAxis::Vertical => {
-                    let cross_axis_offset = match self.cross_axis_alignment {
+                    let cross_axis_alignment = if let Some(a) = child.cross_axis_alignment {
+                        a
+                    } else {
+                        self.cross_axis_alignment
+                    };
+                    let cross_axis_offset = match cross_axis_alignment {
                         CrossAxisAlignment::Start => 0.0,
                         CrossAxisAlignment::Center => (cross_axis_size - size.width) / 2.0,
                         CrossAxisAlignment::End => cross_axis_size - size.width,
@@ -164,13 +223,13 @@ impl<State: 'static> Widget<State> for Flex<State> {
                 }
             }
             child.widget.size = child_size;
-            child.widget.layout(child_size, font_cx);
+            child.widget.layout(child_size, font_context);
             match self.main_axis {
                 FlexAxis::Horizontal => {
-                    main_axis_off += child_size.width + self.spacing;
+                    main_axis_off += child_size.width + justify_space;
                 }
                 FlexAxis::Vertical => {
-                    main_axis_off += child_size.height + self.spacing;
+                    main_axis_off += child_size.height + justify_space;
                 }
             }
         }
@@ -179,19 +238,15 @@ impl<State: 'static> Widget<State> for Flex<State> {
         let flex_height;
         match self.main_axis {
             FlexAxis::Vertical => {
-                if self
-                    .children
-                    .iter()
-                    .all(|child| child.flex_factor.is_none())
-                {
-                    flex_height = sizes.iter().map(|size| size.height).sum::<f64>() + total_spacing;
+                if no_flex_children {
+                    flex_height = sizes.iter().map(|size| size.height).sum::<f64>();
                     flex_width = sizes
                         .iter()
                         .map(|size| size.width)
                         .reduce(f64::max)
                         .unwrap_or(0.);
                 } else {
-                    flex_height = size_hint.height;
+                    flex_height = suggested_size.height;
                     flex_width = sizes
                         .iter()
                         .map(|size| size.width)
@@ -200,19 +255,15 @@ impl<State: 'static> Widget<State> for Flex<State> {
                 }
             }
             FlexAxis::Horizontal => {
-                if self
-                    .children
-                    .iter()
-                    .all(|child| child.flex_factor.is_none())
-                {
-                    flex_width = sizes.iter().map(|size| size.width).sum::<f64>() + total_spacing;
+                if no_flex_children {
+                    flex_width = sizes.iter().map(|size| size.width).sum::<f64>();
                     flex_height = sizes
                         .iter()
                         .map(|size| size.height)
                         .reduce(f64::max)
                         .unwrap_or(0.);
                 } else {
-                    flex_width = size_hint.width;
+                    flex_width = suggested_size.width;
                     flex_height = sizes
                         .iter()
                         .map(|size| size.height)
@@ -226,7 +277,7 @@ impl<State: 'static> Widget<State> for Flex<State> {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {
@@ -237,3 +288,38 @@ impl<State: 'static> Widget<State> for Flex<State> {
         event::Status::Ignored
     }
 }
+
+// impl<State: 'static> Widget<State> for FlexChild<State> {
+//     fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+//         self.widget.inner.layout(suggested_size, font_context)
+//     }
+
+//     fn event(
+//         &mut self,
+//         event_context: &mut event::EventContext,
+//         event: event::WidgetEvent,
+//         state: &mut State,
+//     ) -> event::Status {
+//         self.widget.inner.event(event_context, event, state)
+//     }
+
+//     fn set_hover(&mut self, hover: bool) -> event::Status {
+//         self.widget.inner.set_hover(hover)
+//     }
+
+//     fn paint(&mut self, scene: &mut vello::Scene) {
+//         self.widget.inner.paint(scene);
+//     }
+
+//     fn children(&self) -> Vec<&WidgetData<State>> {
+//         self.widget.inner.children()
+//     }
+
+//     fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
+//         self.widget.inner.children_mut()
+//     }
+
+//     fn debug_name(&self) -> &str {
+//         self.widget.inner.debug_name()
+//     }
+// }

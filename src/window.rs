@@ -1,66 +1,62 @@
 use std::sync::Arc;
 
-use crate::event::window::Event;
+use crate::app::InternalMessage;
+use crate::event::WidgetEvent;
+use crate::event::{self, EventContext};
 use crate::renderer::RenderEngine;
 use crate::view::{RootView, View};
 use crate::widget::{RootWidget, Widget, WidgetIdPath};
-use crate::{
-    event::{self, EventCx},
-    DebugLayer, InternalMessage,
-};
 use parley::FontContext;
 use vello::peniko::kurbo::{Point, Rect, Size};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
-use winit::window::Window as WinitWindow;
-pub struct Window<'a, State> {
+use winit::window::{Window as WinitWindow, WindowId};
+pub struct Window<State: 'static, V: View<State>> {
+    // id: String,
     winit_window: Arc<WinitWindow>,
     physical_size: PhysicalSize<u32>,
     logical_size: Size,
-    scale_factor: f64,
-    event_cx: EventCx,
+    pub scale_factor: f64,
+    event_context: EventContext,
     pub root_widget: RootWidget<State>,
-    pub root_view: RootView<State>,
+    pub root_view: RootView<State, V>,
     cursor_pos: Point,
-    focused_widget: WidgetIdPath,
     hovered_widget: WidgetIdPath,
     bounds_tree: Vec<(WidgetIdPath, Rect)>,
-    render_engine: RenderEngine<'a>,
+    render_engine: RenderEngine,
 }
 
-impl<'a, State> Window<'a, State>
+impl<State: 'static, V> Window<State, V>
 where
-    State: 'static,
+    V: View<State>,
+    V::Element: Widget<State>,
 {
     pub async fn new(
         event_loop: &ActiveEventLoop,
-        title: String,
-        root_view: RootView<State>,
-        debug: &mut DebugLayer,
+        root_view: RootView<State, V>,
+        _id: String,
     ) -> Self {
-        debug.startup_started();
         let window_attributes = WinitWindow::default_attributes()
             .with_decorations(false)
             .with_transparent(true)
-            .with_min_inner_size(winit::dpi::LogicalSize::new(200, 200))
-            .with_title(title);
+            .with_min_inner_size(winit::dpi::LogicalSize::new(200, 200));
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         let physical_size = window.inner_size();
         let logical_size = (physical_size.width as f64, physical_size.height as f64).into();
+
         let mut root_widget = root_view.build_widget();
         let root_child_id = root_widget.child().id;
-        debug.startup_finished();
         Self {
+            // id,
             winit_window: window.clone(),
             physical_size,
             logical_size,
             scale_factor: 1.0,
-            event_cx: EventCx::new(),
+            event_context: EventContext::new(window.clone()),
             root_widget,
             root_view,
             cursor_pos: Point::ZERO,
             // FIXME: This shouldn't be necessary
-            focused_widget: vec![root_child_id],
             hovered_widget: vec![root_child_id],
             bounds_tree: vec![],
             render_engine: RenderEngine::new(
@@ -72,7 +68,11 @@ where
         }
     }
 
-    pub fn id(&self) -> winit::window::WindowId {
+    // pub fn id(&self) -> &str {
+    //     &self.id
+    // }
+
+    pub fn winit_id(&self) -> WindowId {
         self.winit_window.id()
     }
 
@@ -92,167 +92,106 @@ where
         self.winit_window.request_redraw();
     }
 
-    pub fn resize(
-        &mut self,
-        new_size: PhysicalSize<u32>,
-        font_cx: &mut FontContext,
-        debug: &mut DebugLayer,
-    ) {
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>, font_context: &mut FontContext) {
         self.physical_size = new_size;
         self.logical_size = Size::new(
             self.physical_size.width as f64 / self.scale_factor,
             self.physical_size.height as f64 / self.scale_factor,
         );
-        debug.layout_started();
-        self.layout(font_cx);
-        debug.layout_finished();
+        self.layout(font_context);
         self.render_engine
             .resize(self.physical_size.width, self.physical_size.height);
         self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
     }
 
-    pub fn layout(&mut self, font_cx: &mut FontContext) {
-        self.root_widget.layout(self.logical_size.into(), font_cx);
+    pub fn layout(&mut self, font_context: &mut FontContext) {
+        self.root_widget
+            .layout(self.logical_size.into(), font_context);
         self.bounds_tree = self.root_widget.bounds_tree(Vec::new(), Point::ZERO);
     }
 
-    pub fn paint(&mut self, debug: &mut DebugLayer) {
+    pub fn paint(&mut self) {
         let mut scene = vello::Scene::new();
-        debug.draw_started();
         self.root_widget.paint(&mut scene);
-        debug.draw_finished();
-        debug.render_started();
         // draw debug layout thing
         use rand::{Rng, SeedableRng};
-        use vello::kurbo::{Affine, Stroke};
+        use vello::kurbo::Affine;
+        use vello::kurbo::Stroke;
         use vello::peniko::Color;
         for (id, bounds) in &self.bounds_tree {
             let mut rng = rand::rngs::StdRng::seed_from_u64(id.last().unwrap().to_raw() << 3);
             scene.stroke(
                 &Stroke::default(),
-                // .with_dashes(0., [3., 3.]),
                 Affine::default(),
-                Color::rgb8(rng.gen(), rng.gen(), rng.gen()).with_alpha_factor(0.8),
+                Color::rgb8(rng.gen(), rng.gen(), rng.gen()).multiply_alpha(0.8),
                 None,
                 &bounds.inset(-0.5),
             );
         }
-        self.render_engine.render(&scene, self.scale_factor);
-        debug.render_finished();
+        let mut scaled_scene = vello::Scene::new();
+        scaled_scene.append(&scene, Some(Affine::scale(self.scale_factor)));
+        self.render_engine.render(&scaled_scene);
     }
 
-    pub fn event<Logic, V>(
-        &mut self,
-        event: Event,
-        event_loop: &ActiveEventLoop,
-        font_cx: &mut FontContext,
-        state: &mut State,
-        logic: &mut Logic,
-        debug: &mut DebugLayer,
-    ) where
-        Logic: FnMut(&mut State) -> V,
-        V: View<State>,
-    {
-        // eprintln!("{:#?}", self.root_widget.child());
-        match event {
-            Event::CloseRequested => {
-                tracing::trace!("Closing Window={:?}", self.winit_window.id());
-                event_loop.exit()
-            }
-            Event::Resized(size) => {
-                tracing::trace!("{:?}", size);
-                self.resize(size, font_cx, debug);
-            }
-            Event::ScaleFactorChanged(scale_factor) => self.scale_factor = scale_factor,
-            Event::RedrawRequested => {
-                self.paint(debug);
-                debug.log();
-            }
-            _ => {
-                let mut changed_hover = false;
-                if let Event::Mouse(mouse_event) = event.clone() {
-                    if let event::mouse::Event::Move { position, .. } = mouse_event {
-                        self.set_cursor_pos(position);
-                        let previous = self.hovered_widget.clone();
-                        let _: Vec<()> = self
-                            .bounds_tree
-                            .iter()
-                            .map(|(id_path, bounds)| {
-                                if bounds.contains(position) {
-                                    self.hovered_widget.clone_from(id_path);
-                                }
-                            })
-                            .collect();
-                        if previous != self.hovered_widget {
-                            changed_hover = true;
-                            self.root_widget.send_hover(false, previous);
-                            self.winit_window.request_redraw();
-                        }
-                    }
+    pub fn reconciliate(&mut self, view: V) {
+        let new = RootView::new(view);
+        new.reconciliate(&self.root_view, &mut self.root_widget);
+        self.root_view = new;
+    }
 
-                    if let event::mouse::Event::Press {
-                        position,
-                        button: _,
-                    } = mouse_event
-                    {
-                        // FIXME: This is just not great
-                        let _: Vec<()> = self
-                            .bounds_tree
-                            .iter()
-                            .map(|(id_path, bounds)| {
-                                if bounds.contains(position) {
-                                    self.focused_widget.clone_from(id_path);
-                                }
-                            })
-                            .collect();
-                    }
-                }
-                if let Some(widget_event) =
-                    event::widget_event_from_window_event(event, Point::ZERO)
-                {
-                    self.root_widget.send_event(
-                        widget_event,
-                        &mut self.event_cx,
-                        self.focused_widget.clone(),
-                        state,
-                    );
-                    if changed_hover {
-                        self.root_widget
-                            .send_hover(true, self.hovered_widget.clone());
-                    }
-                }
-                self.winit_window.set_cursor(self.event_cx.cursor());
-            }
+    pub fn widget_event(
+        &mut self,
+        event: WidgetEvent,
+        state: &mut State,
+        should_close: &mut bool,
+        state_changed: &mut bool,
+    ) {
+        // eprintln!("{:#?}", self.root_widget.child());
+
+        if let WidgetEvent::Mouse(event::mouse::Event::Move { position, .. }) = event.clone() {
+            self.set_cursor_pos(position);
         }
-        if self.event_cx.repaint_needed {
-            dbg!();
+        let previous = self.hovered_widget.clone();
+        let _: Vec<()> = self
+            .bounds_tree
+            .iter()
+            .map(|(id_path, bounds)| {
+                if bounds.contains(self.cursor_pos) {
+                    self.hovered_widget.clone_from(id_path);
+                }
+            })
+            .collect();
+        if previous != self.hovered_widget {
+            self.root_widget.send_hover(false, previous);
+            self.root_widget
+                .send_hover(true, self.hovered_widget.clone());
             self.winit_window.request_redraw();
-            self.event_cx.repaint_needed = false;
         }
-        for message in self.event_cx.drain_internal_messages() {
+        self.root_widget.send_event(
+            event,
+            &mut self.event_context,
+            self.hovered_widget.clone(),
+            state,
+        );
+        self.winit_window.set_cursor(self.event_context.cursor());
+
+        if self.event_context.repaint_needed {
+            self.winit_window.request_redraw();
+            self.event_context.repaint_needed = false;
+        }
+        for message in self.event_context.drain_internal_messages() {
             match message {
-                InternalMessage::DragResizeWindow(direction) => {
-                    let _ = self.winit_window.drag_resize_window(direction);
-                }
-                InternalMessage::DragMoveWindow => {
-                    let _ = self.winit_window.drag_window();
-                }
+                InternalMessage::DragResizeWindow(_) => {}
+                InternalMessage::DragMoveWindow => {}
                 InternalMessage::MinimiseWindow => self.winit_window.set_minimized(true),
                 InternalMessage::MaximiseWindow => self
                     .winit_window
                     .set_maximized(!self.winit_window.is_maximized()),
-                InternalMessage::CloseWindow => event_loop.exit(),
+                InternalMessage::CloseWindow => *should_close = true,
                 InternalMessage::TitleChanged(title) => self.winit_window.set_title(title.as_str()),
             }
         }
-        if self.event_cx.state_changed {
-            tracing::trace!("state changed");
-            let new = RootView::new(Box::new((logic)(state)));
-            new.reconciliate(&self.root_view, &mut self.root_widget);
-            self.root_view = new;
-            self.layout(font_cx);
-            self.request_redraw();
-            self.event_cx.state_changed = false;
-        }
+        *state_changed = self.event_context.state_changed;
+        self.event_context.state_changed = false;
     }
 }

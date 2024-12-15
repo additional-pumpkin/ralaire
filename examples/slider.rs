@@ -1,17 +1,19 @@
 use ralaire::{
-    application::Application,
-    view::{container, slider, window, View},
+    app::{App, WidgetView},
+    view::{container, slider, window},
 };
 use winit::error::EventLoopError;
 
-fn app_logic(state: &mut f64) -> impl View<f64> {
-    window(container(slider(*state, |state, value| *state = value))).title("Text")
+fn app_logic(state: &mut f64) -> impl WidgetView<f64> {
+    window(
+        container(slider(*state, |state, value| *state = value)),
+        "Slider".to_owned(),
+    )
 }
 
 fn main() -> Result<(), EventLoopError> {
     tracing_subscriber::fmt::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
-    let app = Application::new(0.5, app_logic);
-    app.run()
+    App::new(0.5, app_logic).run()
 }

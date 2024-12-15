@@ -1,7 +1,7 @@
+use crate::event;
 use crate::event::mouse::MouseButton;
 use crate::event::WidgetEvent;
-use crate::widget::{Widget, WidgetData, WidgetId};
-use crate::{event, InternalMessage};
+use crate::widget::{Header, Widget, WidgetData, WidgetMarker};
 use core::f64::consts::PI;
 use parley::FontContext;
 use vello::peniko::kurbo::{Affine, Circle, Point, Rect, RoundedRect, Shape, Size};
@@ -35,36 +35,30 @@ fn interpolate(start: f64, end: f64, factor: f64) -> f64 {
 }
 #[derive(Debug)]
 pub struct Window<State: 'static> {
-    // TODO: remove this
-    pub id: WidgetId,
     bounds: RoundedRect,
     size: Size, // includes shadows
-    header: WidgetData<State>,
-    content: WidgetData<State>,
-    title: String,
+    pub header: WidgetData<State>,
+    pub content: WidgetData<State>,
+    pub title: String,
 }
 
 impl<State> Window<State> {
-    pub fn new(header: WidgetData<State>, content: WidgetData<State>, title: String) -> Self {
+    pub fn new<Content: Widget<State>>(
+        header: Header<State>,
+        content: Content,
+        title: String,
+    ) -> Self {
         Window {
-            id: WidgetId::unique(),
             bounds: Rect::ZERO.to_rounded_rect(CORNER_RADIUS),
             size: Size::ZERO,
-            header,
-            content,
+            header: WidgetData::new(Box::new(header)),
+            content: WidgetData::new(Box::new(content)),
             title,
         }
     }
-    pub fn set_title(&mut self, title: String) {
-        self.title = title;
-    }
-    pub fn header(&mut self) -> &mut WidgetData<State> {
-        &mut self.header
-    }
-    pub fn content(&mut self) -> &mut WidgetData<State> {
-        &mut self.content
-    }
 }
+
+impl<State> WidgetMarker for Window<State> {}
 impl<State: 'static> Widget<State> for Window<State> {
     fn debug_name(&self) -> &str {
         "window"
@@ -545,11 +539,11 @@ impl<State: 'static> Widget<State> for Window<State> {
         scene.pop_layer();
     }
 
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.size = size_hint;
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        self.size = suggested_size;
         self.bounds = Rect::from_origin_size(
             Point::new(SHADOW_WIDTH, SHADOW_WIDTH),
-            size_hint - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
+            suggested_size - Size::new(SHADOW_WIDTH * 2., SHADOW_WIDTH * 2.),
         )
         .to_rounded_rect(CORNER_RADIUS);
         let header_size = Size::new(self.bounds.width(), HEADER_BAR_HEIGHT);
@@ -558,58 +552,58 @@ impl<State: 'static> Widget<State> for Window<State> {
             self.bounds.height() - HEADER_BAR_HEIGHT,
         );
 
-        self.header.layout(header_size, font_cx);
+        self.header.layout(header_size, font_context);
 
-        self.content.layout(content_size, font_cx);
+        self.content.layout(content_size, font_context);
         self.header.size = header_size;
         self.header.position = Point::new(SHADOW_WIDTH, SHADOW_WIDTH);
         self.content.size = content_size;
         self.content.position = Point::new(SHADOW_WIDTH, SHADOW_WIDTH + HEADER_BAR_HEIGHT);
-        size_hint
+        suggested_size
     }
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {
-        event_cx.push_internal_message(InternalMessage::TitleChanged(self.title.clone()));
+        event_context.winit_window.set_title(&self.title);
         if let WidgetEvent::Mouse(event::mouse::Event::Press { position, button }) = event {
             if button == MouseButton::Left && !self.bounds.contains(position) {
                 let x = (position.x / (self.size.width / 3.)) as u8;
                 let y = (position.y / (self.size.height / 3.)) as u8;
                 if x == 0 && y == 0 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::NorthWest,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::NorthWest);
                 } else if x == 1 && y == 0 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::North,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::North);
                 } else if x == 2 && y == 0 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::NorthEast,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::NorthEast);
                 } else if x == 2 && y == 1 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::East,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::East);
                 } else if x == 2 && y == 2 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::SouthEast,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::SouthEast);
                 } else if x == 1 && y == 2 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::South,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::South);
                 } else if x == 0 && y == 2 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::SouthWest,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::SouthWest);
                 } else if x == 0 && y == 1 {
-                    event_cx.push_internal_message(InternalMessage::DragResizeWindow(
-                        ResizeDirection::West,
-                    ));
+                    let _ = event_context
+                        .winit_window
+                        .drag_resize_window(ResizeDirection::West);
                 }
                 return event::Status::Captured;
             }

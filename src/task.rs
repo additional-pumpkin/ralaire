@@ -14,9 +14,9 @@ impl<State> Task<State> {
     ) -> Self {
         Self {
             tasks: vec![InternalTask::Animate {
-                animation,
-                tick_callback: Box::new(tick_callback),
-                done_callback: Box::new(done_callback),
+                _animation: animation,
+                _tick_callback: Box::new(tick_callback),
+                _done_callback: Box::new(done_callback),
             }],
         }
     }
@@ -28,8 +28,8 @@ impl<State> Task<State> {
 
 pub(crate) enum InternalTask<State> {
     Animate {
-        animation: Animation,
-        tick_callback: Box<dyn Fn(&mut State)>,
-        done_callback: Box<dyn Fn(&mut State)>,
+        _animation: Animation,
+        _tick_callback: Box<dyn Fn(&mut State)>,
+        _done_callback: Box<dyn Fn(&mut State)>,
     },
 }

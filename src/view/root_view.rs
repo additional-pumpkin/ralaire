@@ -1,25 +1,50 @@
-use crate::{view::View, widget::RootWidget};
+use std::marker::PhantomData;
 
-pub struct RootView<State> {
-    child: Box<dyn View<State>>,
+use crate::{
+    view::View,
+    widget::{RootWidget, Widget},
+};
+
+pub struct RootView<State: 'static, Child>
+where
+    Child: View<State>,
+{
+    child: Child,
+    phantom_data: PhantomData<State>,
 }
 
-impl<State: 'static> RootView<State> {
-    pub fn new(child: Box<dyn View<State>>) -> Self {
-        Self { child }
+impl<State: 'static, Child> RootView<State, Child>
+where
+    Child: View<State>,
+    Child::Element: Widget<State>,
+{
+    pub fn new(child: Child) -> Self {
+        Self {
+            child,
+            phantom_data: PhantomData,
+        }
     }
 
     pub fn build_widget(&self) -> RootWidget<State> {
-        let child = self.child.build_widget();
+        let child = self.child.build();
         RootWidget::new(child)
     }
 
-    pub fn reconciliate(&self, old: &RootView<State>, root_widget: &mut RootWidget<State>) {
-        if self.child.as_any().type_id() == old.child.as_any().type_id() {
-            self.child.reconciliate(&old.child, root_widget.child());
-        } else {
-            let widget = self.child.build_widget();
-            *root_widget.child() = widget;
-        }
+    pub fn reconciliate(&self, old: &RootView<State, Child>, root_widget: &mut RootWidget<State>) {
+        self.child.rebuild(
+            &old.child,
+            (*root_widget.child().inner)
+                .as_any_mut()
+                .downcast_mut::<Child::Element>()
+                .unwrap(),
+        );
+    }
+    pub fn teardown(&self, root_widget: &mut RootWidget<State>) {
+        self.child.teardown(
+            (*root_widget.child().inner)
+                .as_any_mut()
+                .downcast_mut::<Child::Element>()
+                .unwrap(),
+        );
     }
 }

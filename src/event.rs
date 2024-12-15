@@ -1,32 +1,33 @@
+use std::sync::Arc;
 use std::vec::Drain;
 
 use vello::peniko::kurbo::Point;
 use vello::peniko::kurbo::Vec2;
 use winit::window::CursorIcon;
+use winit::window::Window as WinitWindow;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
 pub mod window;
 use crate::InternalMessage;
-extern crate alloc;
-use alloc::vec;
-use alloc::vec::Vec;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Status {
     Ignored,
     Captured,
 }
-pub struct EventCx {
+pub struct EventContext {
     pub repaint_needed: bool,
     pub state_changed: bool,
+    pub winit_window: Arc<WinitWindow>,
     internal_messages: Vec<InternalMessage>,
     cursor: CursorIcon,
 }
-impl EventCx {
-    pub fn new() -> Self {
-        EventCx {
+impl EventContext {
+    pub fn new(winit_window: Arc<WinitWindow>) -> Self {
+        EventContext {
             repaint_needed: false,
             state_changed: false,
+            winit_window,
             internal_messages: vec![],
             cursor: CursorIcon::Default,
         }
@@ -56,10 +57,7 @@ pub enum WidgetEvent {
     Touch(touch::Event),
 }
 
-pub fn widget_event_from_window_event(
-    event: window::Event,
-    widget_position: Point,
-) -> Option<WidgetEvent> {
+pub fn widget_event_from_window_event(event: window::Event) -> Option<WidgetEvent> {
     match event {
         window::Event::Resized(_) => None,
         window::Event::CloseRequested => None,
@@ -69,22 +67,14 @@ pub fn widget_event_from_window_event(
         window::Event::Mouse(mut mouse_event) => {
             match mouse_event {
                 mouse::Event::Move { position } => {
-                    mouse_event = mouse::Event::Move {
-                        position: (position - widget_position).to_point(),
-                    };
+                    mouse_event = mouse::Event::Move { position };
                 }
                 mouse::Event::Wheel { delta: _ } => {}
                 mouse::Event::Press { position, button } => {
-                    mouse_event = mouse::Event::Press {
-                        position: (position - widget_position).to_point(),
-                        button,
-                    };
+                    mouse_event = mouse::Event::Press { position, button };
                 }
                 mouse::Event::Release { position, button } => {
-                    mouse_event = mouse::Event::Release {
-                        position: (position - widget_position).to_point(),
-                        button,
-                    };
+                    mouse_event = mouse::Event::Release { position, button };
                 }
             }
             Some(WidgetEvent::Mouse(mouse_event))
@@ -92,15 +82,11 @@ pub fn widget_event_from_window_event(
         window::Event::Touch(mut touch_event) => {
             match touch_event {
                 touch::Event::Start { start } => {
-                    touch_event = touch::Event::Start {
-                        start: (start - widget_position).to_point(),
-                    };
+                    touch_event = touch::Event::Start { start };
                 }
                 touch::Event::Move { delta: _ } => {}
                 touch::Event::End { end } => {
-                    touch_event = touch::Event::End {
-                        end: (end - widget_position).to_point(),
-                    };
+                    touch_event = touch::Event::End { end };
                 }
                 touch::Event::Cancel => {}
             }

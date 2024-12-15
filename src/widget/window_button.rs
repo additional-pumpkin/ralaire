@@ -1,8 +1,7 @@
-use super::WidgetData;
 use crate::event::{self, mouse::MouseButton};
 use crate::widget::alignment;
 use crate::widget::Container;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetData, WidgetMarker};
 use crate::InternalMessage;
 use parley::FontContext;
 use vello::kurbo::Affine;
@@ -18,8 +17,8 @@ pub struct WindowButtonWidget<State> {
     hovered: bool,
 }
 
-impl<State> WindowButtonWidget<State> {
-    pub fn new(child: WidgetData<State>, on_press: InternalMessage) -> Self {
+impl<State: 'static> WindowButtonWidget<State> {
+    pub fn new(child: impl Widget<State>, on_press: InternalMessage) -> Self {
         let child = Container::new(
             child,
             alignment::Horizontal::Center,
@@ -34,6 +33,7 @@ impl<State> WindowButtonWidget<State> {
     }
 }
 
+impl<State> WidgetMarker for WindowButtonWidget<State> {}
 impl<State: 'static> Widget<State> for WindowButtonWidget<State> {
     fn debug_name(&self) -> &str {
         "window_button"
@@ -43,7 +43,6 @@ impl<State: 'static> Widget<State> for WindowButtonWidget<State> {
             Fill::NonZero,
             Affine::default(),
             Color::rgb8(235, 235, 235),
-            // Color::RED,
             None,
             &Circle::new(CENTER, RADIUS),
         );
@@ -88,16 +87,16 @@ impl<State: 'static> Widget<State> for WindowButtonWidget<State> {
         self.child.children_mut()
     }
 
-    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.child.layout(SIZE, font_cx);
+    fn layout(&mut self, _: Size, font_context: &mut FontContext) -> Size {
+        self.child.layout(SIZE, font_context);
         SIZE
     }
 
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
-        state: &mut State,
+        _state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(event::mouse::Event::Press {
             position: _,
@@ -105,7 +104,7 @@ impl<State: 'static> Widget<State> for WindowButtonWidget<State> {
         }) = event
         {
             if button == MouseButton::Left {
-                event_cx.push_internal_message(self.on_press.clone());
+                event_context.push_internal_message(self.on_press.clone());
                 return event::Status::Captured;
             }
         }

@@ -1,5 +1,7 @@
+use std::borrow::Cow;
+
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetMarker};
 use parley::{style::FontFamily, FontContext, Layout};
 use vello::peniko::kurbo::{Affine, Size};
 use vello::peniko::{Brush, Color};
@@ -16,21 +18,21 @@ impl Text {
         }
     }
 
-    pub fn layout_text(&mut self, text: String, size: Size, font_cx: &mut FontContext) {
+    pub fn layout_text(&mut self, text: String, size: Size, font_context: &mut FontContext) {
         self.text = text;
         let mut lcx = parley::LayoutContext::new();
-        let mut layout_builder = lcx.ranged_builder(font_cx, &self.text, 1.0);
-        layout_builder.push_default(&parley::style::StyleProperty::Brush(Brush::Solid(
+        let mut layout_builder = lcx.ranged_builder(font_context, &self.text, 1.0);
+        layout_builder.push_default(parley::style::StyleProperty::Brush(Brush::Solid(
             Color::BLACK,
         )));
-        layout_builder.push_default(&parley::style::StyleProperty::FontStack(
-            parley::style::FontStack::List(&[
-                FontFamily::Named("Inter"),
-                FontFamily::Named("Noto Sans"),
-            ]),
+        layout_builder.push_default(parley::style::StyleProperty::FontStack(
+            parley::style::FontStack::List(Cow::Borrowed(&[
+                FontFamily::Named(Cow::Borrowed("Inter")),
+                FontFamily::Named(Cow::Borrowed("Noto Sans")),
+            ])),
         ));
-        layout_builder.push_default(&parley::style::StyleProperty::FontSize(14.6666666));
-        layout_builder.push_default(&parley::style::StyleProperty::Brush(Brush::Solid(
+        layout_builder.push_default(parley::style::StyleProperty::FontSize(14.6666666));
+        layout_builder.push_default(parley::style::StyleProperty::Brush(Brush::Solid(
             Color::BLACK,
         )));
         // layout_builder.push_default(&parley::style::StyleProperty::FontStyle(
@@ -39,7 +41,7 @@ impl Text {
         // layout_builder.push_default(&parley::style::StyleProperty::FontWeight(
         //     parley::style::FontWeight::BOLD,
         // ));
-        let mut layout = layout_builder.build();
+        let mut layout = layout_builder.build(&self.text);
         layout.break_all_lines(Some(size.width as f32));
         layout.align(Some(size.width as f32), parley::layout::Alignment::Start);
         self.layout = layout;
@@ -52,6 +54,7 @@ impl Text {
     }
 }
 
+impl WidgetMarker for Text {}
 impl<State: 'static> Widget<State> for Text {
     fn debug_name(&self) -> &str {
         "text"
@@ -90,7 +93,7 @@ impl<State: 'static> Widget<State> for Text {
                                     let gx = x + glyph.x;
                                     let gy = y - glyph.y;
                                     x += glyph.advance;
-                                    vello::glyph::Glyph {
+                                    vello::Glyph {
                                         id: glyph.id as _,
                                         x: gx,
                                         y: gy,
@@ -106,8 +109,8 @@ impl<State: 'static> Widget<State> for Text {
         }
     }
 
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.layout_text(self.text.clone(), size_hint, font_cx);
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        self.layout_text(self.text.clone(), suggested_size, font_context);
         Size::new(self.layout.width() as f64, self.layout.height() as f64)
     }
 
@@ -121,7 +124,7 @@ impl<State: 'static> Widget<State> for Text {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {

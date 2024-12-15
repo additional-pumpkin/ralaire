@@ -1,11 +1,9 @@
 use crate::event::{self, mouse::MouseButton};
-use crate::widget::Widget;
 use crate::widget::{alignment, Container};
+use crate::widget::{Widget, WidgetData, WidgetMarker};
 use parley::FontContext;
 use vello::peniko::kurbo::{Affine, Point, Rect, RoundedRectRadii, Size};
 use vello::peniko::{Color, Fill};
-
-use super::WidgetData;
 
 pub struct Button<State> {
     pub(crate) size: Size,
@@ -16,9 +14,9 @@ pub struct Button<State> {
     hovered: bool,
 }
 
-impl<State> Button<State> {
+impl<State: 'static> Button<State> {
     pub fn new(
-        child: WidgetData<State>,
+        child: impl Widget<State>,
         size: Size,
         radii: RoundedRectRadii,
         color: Color,
@@ -41,6 +39,7 @@ impl<State> Button<State> {
     }
 }
 
+impl<State> WidgetMarker for Button<State> {}
 impl<State: 'static> Widget<State> for Button<State> {
     fn debug_name(&self) -> &str {
         "button"
@@ -57,7 +56,7 @@ impl<State: 'static> Widget<State> for Button<State> {
             scene.fill(
                 Fill::NonZero,
                 Affine::default(),
-                Color::BLACK.with_alpha_factor(0.1),
+                Color::BLACK.multiply_alpha(0.1),
                 None,
                 &Rect::from_origin_size(Point::new(0., 0.), self.size).to_rounded_rect(self.radii),
             );
@@ -73,14 +72,14 @@ impl<State: 'static> Widget<State> for Button<State> {
         self.child.children_mut()
     }
 
-    fn layout(&mut self, _size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.child.layout(self.size, font_cx);
+    fn layout(&mut self, _: Size, font_context: &mut FontContext) -> Size {
+        self.child.layout(self.size, font_context);
         self.size
     }
 
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
         state: &mut State,
     ) -> event::Status {
@@ -92,7 +91,7 @@ impl<State: 'static> Widget<State> for Button<State> {
             if button == MouseButton::Left {
                 if let Some(on_press) = &self.on_press {
                     (on_press)(state);
-                    event_cx.state_changed = true;
+                    event_context.state_changed = true;
                 }
                 return event::Status::Captured;
             }

@@ -4,15 +4,18 @@ use vello::{
     kurbo::Affine,
     peniko::kurbo::{Point, Rect, Size},
 };
+
+pub trait WidgetMarker {}
+
 pub trait Widget<State: 'static>: AsAny {
-    fn layout(&mut self, suggested_size: Size, font_cx: &mut FontContext) -> Size;
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size;
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
         state: &mut State,
     ) -> event::Status;
-    fn set_hover(&mut self, _hover: bool) -> event::Status;
+    fn set_hover(&mut self, hover: bool) -> event::Status;
     fn paint(&mut self, scene: &mut vello::Scene);
     fn children(&self) -> Vec<&WidgetData<State>>;
     fn children_mut(&mut self) -> Vec<&mut WidgetData<State>>;
@@ -84,17 +87,22 @@ impl<State: 'static> WidgetData<State> {
         self.id = id;
         self
     }
-    pub fn layout(&mut self, suggested_size: Size, font_cx: &mut FontContext) -> Size {
+    pub fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        if !self.change_flags.needs_layout {
+            tracing::warn!("Widget didn't need layout, but it was ignored");
+        }
+
+        // FIXME: not every layout requires a repaint
         self.change_flags.needs_paint = true;
-        self.inner.layout(suggested_size, font_cx)
-        // self.size
+        self.inner.layout(suggested_size, font_context)
     }
     pub fn paint(&mut self, scene: &mut vello::Scene) {
         if self.change_flags.needs_paint {
-            // self.change_flags.needs_paint = false;
-            self.scene.reset();
-            self.inner.paint(&mut self.scene);
+            tracing::warn!("Widget didn't need layout, but it was ignored");
         }
+        self.change_flags.needs_paint = false;
+        self.scene.reset();
+        self.inner.paint(&mut self.scene);
         let transform = Affine::translate(self.position.to_vec2());
         scene.append(&self.scene, Some(transform));
     }
@@ -107,8 +115,6 @@ use core::{
     num::NonZeroU64,
     sync::atomic::{AtomicU64, Ordering},
 };
-extern crate alloc;
-use alloc::vec::Vec;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct WidgetId(NonZeroU64);

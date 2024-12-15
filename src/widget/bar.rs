@@ -1,5 +1,5 @@
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetMarker};
 use parley::FontContext;
 use vello::kurbo::{Point, Size};
 
@@ -39,7 +39,7 @@ impl<State> Bar<State> {
         self.height = height
     }
 }
-
+impl<State> WidgetMarker for Bar<State> {}
 impl<State: 'static> Widget<State> for Bar<State> {
     fn debug_name(&self) -> &str {
         "bar"
@@ -50,9 +50,9 @@ impl<State: 'static> Widget<State> for Bar<State> {
         }
     }
 
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
-        if !size_hint.is_finite() {
-            tracing::error!("Bar widget: suggested size is infinite");
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        if !suggested_size.is_finite() {
+            panic!("FIXME: size is infinite");
         }
         let side_size_hint = Size {
             width: f64::INFINITY,
@@ -61,17 +61,17 @@ impl<State: 'static> Widget<State> for Bar<State> {
         let left_width;
         let right_width;
         if let Some(left) = &mut self.left {
-            left_width = left.layout(side_size_hint, font_cx).width;
+            left_width = left.layout(side_size_hint, font_context).width;
         } else {
             left_width = 0.;
         }
         if let Some(right) = &mut self.right {
-            right_width = right.layout(side_size_hint, font_cx).width;
+            right_width = right.layout(side_size_hint, font_context).width;
         } else {
             right_width = 0.;
         }
         let max_width = f64::max(left_width, right_width);
-        let middle_width = size_hint.width - max_width * 2.;
+        let middle_width = suggested_size.width - max_width * 2.;
         if let Some(left) = &mut self.left {
             left.size = Size::new(max_width, self.height);
             left.position = Point::new(0., 0.);
@@ -85,11 +85,11 @@ impl<State: 'static> Widget<State> for Bar<State> {
             height: self.height,
         };
         if let Some(middle) = &mut self.middle {
-            middle.layout(middle_size_hint, font_cx);
+            middle.layout(middle_size_hint, font_context);
             middle.size = Size::new(middle_width, self.height);
             middle.position = Point::new(max_width, 0.);
         }
-        Size::new(size_hint.width, self.height)
+        Size::new(suggested_size.width, self.height)
     }
 
     fn children(&self) -> Vec<&WidgetData<State>> {
@@ -110,7 +110,7 @@ impl<State: 'static> Widget<State> for Bar<State> {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {

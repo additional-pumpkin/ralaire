@@ -1,5 +1,5 @@
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetMarker};
 use image::ImageReader;
 use parley::FontContext;
 use std::io::Cursor;
@@ -36,6 +36,7 @@ impl Image {
     }
 }
 
+impl WidgetMarker for Image {}
 impl<State: 'static> Widget<State> for Image {
     fn paint(&mut self, scene: &mut vello::Scene) {
         scene.draw_image(&self.image.clone(), Affine::default());
@@ -44,8 +45,7 @@ impl<State: 'static> Widget<State> for Image {
     fn debug_name(&self) -> &str {
         "image"
     }
-    fn layout(&mut self, _size_hint: Size, _font_cx: &mut FontContext) -> Size {
-        // self.size = size_hint;
+    fn layout(&mut self, _: Size, _font_context: &mut FontContext) -> Size {
         self.size
     }
 
@@ -59,7 +59,7 @@ impl<State: 'static> Widget<State> for Image {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {

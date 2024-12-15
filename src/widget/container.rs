@@ -1,5 +1,4 @@
-use crate::widget::Widget;
-use crate::widget::WidgetData;
+use crate::widget::{Widget, WidgetData, WidgetMarker};
 use crate::{event, Padding};
 use parley::FontContext;
 use vello::kurbo::{Point, Size};
@@ -27,9 +26,9 @@ pub struct Container<State> {
     child: WidgetData<State>,
 }
 
-impl<State> Container<State> {
+impl<State: 'static> Container<State> {
     pub fn new(
-        child: WidgetData<State>,
+        child: impl Widget<State>,
         h_alignment: alignment::Horizontal,
         v_alignment: alignment::Vertical,
         padding: Padding,
@@ -39,11 +38,12 @@ impl<State> Container<State> {
             h_alignment,
             v_alignment,
             padding,
-            child,
+            child: WidgetData::new(Box::new(child)),
         }
     }
 }
 
+impl<State> WidgetMarker for Container<State> {}
 impl<State: 'static> Widget<State> for Container<State> {
     fn paint(&mut self, scene: &mut vello::Scene) {
         self.child.paint(scene);
@@ -57,14 +57,17 @@ impl<State: 'static> Widget<State> for Container<State> {
     fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![&mut self.child]
     }
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.size = size_hint;
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        if !suggested_size.is_finite() {
+            panic!("FIXME: size is infinite");
+        }
+        self.size = suggested_size;
         self.child.size = self.child.layout(
             Size::new(
-                size_hint.width - self.padding.horizontal(),
-                size_hint.height - self.padding.vertical(),
+                self.size.width - self.padding.horizontal(),
+                self.size.height - self.padding.vertical(),
             ),
-            font_cx,
+            font_context,
         );
 
         let padding = self.padding;
@@ -90,7 +93,7 @@ impl<State: 'static> Widget<State> for Container<State> {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {

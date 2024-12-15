@@ -1,10 +1,9 @@
 mod animation;
-pub mod application;
-mod debug;
+pub mod app;
 mod event;
-mod id;
 mod padding;
 mod renderer;
+mod scene;
 mod task;
 mod window;
 pub use animation::Animation;
@@ -29,9 +28,7 @@ impl<T: 'static> AsAny for T {
     }
 }
 
-use animation::AnimationId;
-use application::InternalMessage;
-use debug::DebugLayer;
+use app::InternalMessage;
 use padding::Padding;
 pub use task::Task;
 pub mod view;

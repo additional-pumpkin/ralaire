@@ -1,7 +1,7 @@
 use core::f64;
 
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetMarker};
 
 use parley::FontContext;
 use vello::{
@@ -27,6 +27,7 @@ impl<State> Scroll<State> {
     }
 }
 
+impl<State> WidgetMarker for Scroll<State> {}
 impl<State: 'static> Widget<State> for Scroll<State> {
     fn paint(&mut self, scene: &mut vello::Scene) {
         scene.push_layer(
@@ -69,26 +70,29 @@ impl<State: 'static> Widget<State> for Scroll<State> {
     fn children_mut(&mut self) -> Vec<&mut WidgetData<State>> {
         vec![&mut self.child]
     }
-    fn layout(&mut self, size_hint: Size, font_cx: &mut FontContext) -> Size {
-        self.size = size_hint;
+    fn layout(&mut self, suggested_size: Size, font_context: &mut FontContext) -> Size {
+        if !suggested_size.is_finite() {
+            panic!("FIXME: size is infinite");
+        }
+        self.size = suggested_size;
         self.child.size = self
             .child
-            .layout(Size::new(f64::INFINITY, f64::INFINITY), font_cx);
+            .layout(Size::new(f64::INFINITY, f64::INFINITY), font_context);
         self.child.position = Point::new(
             (self.child.size.width - self.size.width) * self.scroll.x,
             (self.child.size.height - self.size.height) * self.scroll.y,
         );
-        size_hint
+        suggested_size
     }
 
     fn event(
         &mut self,
-        event_cx: &mut event::EventCx,
+        event_context: &mut event::EventContext,
         event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {
         if let event::WidgetEvent::Mouse(event::mouse::Event::Wheel { delta }) = event {
-            event_cx.repaint_needed = true;
+            event_context.repaint_needed = true;
             self.scroll.x += delta.x / (self.child.size.width - self.size.width);
             self.scroll.y += delta.y / (self.child.size.height - self.size.height);
             self.child.position = Point::new(

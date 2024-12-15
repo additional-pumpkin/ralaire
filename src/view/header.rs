@@ -1,114 +1,98 @@
-use crate::AsAny;
+use crate::view::{View, ViewMarker, WindowControls};
+use crate::widget::{self, Widget};
 
-use crate::view::View;
-use crate::widget::{self, WidgetData};
-
-use super::window_controls::WindowControls;
-pub struct Header<State> {
-    left: Option<Box<dyn View<State>>>,
-    pub(crate) middle: Option<Box<dyn View<State>>>,
-    right: Option<Box<dyn View<State>>>,
-    window_controls: Box<dyn View<State>>,
+pub struct Header<Left, Middle, Right> {
+    left: Left,
+    middle: Middle,
+    right: Right,
+    window_controls: WindowControls,
 }
-#[allow(dead_code)]
-impl<State: 'static> Header<State> {
-    pub fn new() -> Self {
+impl<Left, Middle, Right> Header<Left, Middle, Right> {
+    pub fn new(left: Left, middle: Middle, right: Right) -> Self {
         Self {
-            left: None,
-            middle: None,
-            right: None,
-            window_controls: Box::new(WindowControls),
-        }
-    }
-    pub fn left(mut self, view: impl View<State>) -> Self {
-        self.left = Some(Box::new(view));
-        self
-    }
-    pub fn middle(mut self, view: impl View<State>) -> Self {
-        self.middle = Some(Box::new(view));
-        self
-    }
-    pub fn right(mut self, view: impl View<State>) -> Self {
-        self.right = Some(Box::new(view));
-        self
-    }
-}
-
-impl<State: 'static> View<State> for Header<State> {
-    fn build_widget(&self) -> WidgetData<State> {
-        let left = self.left.as_ref().map(|view| view.build_widget());
-        let middle = self.middle.as_ref().map(|view| view.build_widget());
-        let right = self.right.as_ref().map(|view| view.build_widget());
-        let window_controls = self.window_controls.build_widget();
-
-        WidgetData::new(Box::new(widget::Header::new(
             left,
             middle,
             right,
-            window_controls,
-        )))
+            window_controls: WindowControls,
+        }
+    }
+}
+impl<Left, Middle, Right> ViewMarker for Header<Left, Middle, Right> {}
+impl<State: 'static, Left, Middle, Right> View<State> for Header<Left, Middle, Right>
+where
+    Left: View<State>,
+    Middle: View<State>,
+    Right: View<State>,
+    Left::Element: Widget<State>,
+    Middle::Element: Widget<State>,
+    Right::Element: Widget<State>,
+{
+    type Element = widget::Header<State>;
+
+    fn build(&self) -> Self::Element {
+        let left = self.left.build();
+        let middle = self.middle.build();
+        let right = self.right.build();
+        let window_controls = self.window_controls.build();
+
+        widget::Header::new(left, middle, right, window_controls)
     }
 
-    fn change_widget(&self, _widget: &mut WidgetData<State>) {}
+    fn rebuild(&self, old: &Self, element: &mut Self::Element) {
+        self.left.rebuild(
+            &old.left,
+            (*element.left.inner)
+                .as_any_mut()
+                .downcast_mut::<Left::Element>()
+                .unwrap(),
+        );
+        self.middle.rebuild(
+            &old.middle,
+            (*element.middle.inner)
+                .as_any_mut()
+                .downcast_mut::<Middle::Element>()
+                .unwrap(),
+        );
+        self.right.rebuild(
+            &old.right,
+            (*element.right.inner)
+                .as_any_mut()
+                .downcast_mut::<Right::Element>()
+                .unwrap(),
+        );
+        self.window_controls.rebuild(
+            &old.window_controls,
+            (*element.window_controls.inner)
+                .as_any_mut()
+                .downcast_mut::<widget::WindowControls<State>>()
+                .unwrap(),
+        );
+    }
 
-    fn reconciliate(&self, old: &Box<dyn View<State>>, widget: &mut WidgetData<State>) {
-        let old = (**old).as_any().downcast_ref::<Header<State>>().unwrap();
-
-        let header = (*widget.inner)
-            .as_any_mut()
-            .downcast_mut::<widget::Header<State>>()
-            .unwrap();
-        // left
-        if let Some(new_child) = &self.left {
-            if let Some(old_child) = &old.left {
-                if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, header.left().as_mut().unwrap());
-                } else {
-                    let new_widget = new_child.build_widget();
-                    *header.left() = Some(new_widget);
-                }
-            } else {
-                let new_widget = new_child.build_widget();
-                *header.left() = Some(new_widget);
-            }
-        } else {
-            *header.left() = None;
-        }
-
-        // middle
-        if let Some(new_child) = &self.middle {
-            if let Some(old_child) = &old.middle {
-                if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, header.middle().as_mut().unwrap());
-                } else {
-                    let new_widget = new_child.build_widget();
-                    *header.middle() = Some(new_widget);
-                }
-            } else {
-                let new_widget = new_child.build_widget();
-                *header.middle() = Some(new_widget);
-            }
-        } else {
-            *header.middle() = None;
-        }
-
-        // right
-        if let Some(new_child) = &self.right {
-            if let Some(old_child) = &old.right {
-                if new_child.as_any().type_id() == old_child.as_any().type_id() {
-                    new_child.reconciliate(old_child, header.right().as_mut().unwrap());
-                } else {
-                    let new_widget = new_child.build_widget();
-                    *header.right() = Some(new_widget);
-                }
-            } else {
-                let new_widget = new_child.build_widget();
-                *header.right() = Some(new_widget);
-            }
-        } else {
-            *header.right() = None;
-        }
-
-        widget.change_flags.needs_layout = true; // TODO: figure out when this is needed
+    fn teardown(&self, element: &mut Self::Element) {
+        self.left.teardown(
+            (*element.left.inner)
+                .as_any_mut()
+                .downcast_mut::<Left::Element>()
+                .unwrap(),
+        );
+        self.middle.teardown(
+            (*element.middle.inner)
+                .as_any_mut()
+                .downcast_mut::<Middle::Element>()
+                .unwrap(),
+        );
+        self.right.teardown(
+            (*element.right.inner)
+                .as_any_mut()
+                .downcast_mut::<Right::Element>()
+                .unwrap(),
+        );
+        self.window_controls.teardown(
+            (*element.window_controls.inner)
+                .as_any_mut()
+                .downcast_mut::<widget::WindowControls<State>>()
+                .unwrap(),
+        );
     }
 }

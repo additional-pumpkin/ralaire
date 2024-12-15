@@ -1,5 +1,5 @@
 use crate::event;
-use crate::widget::Widget;
+use crate::widget::{Widget, WidgetMarker};
 use parley::FontContext;
 use vello::kurbo::{Affine, Size};
 use vello_svg::usvg;
@@ -22,6 +22,7 @@ impl Svg {
     }
 }
 
+impl WidgetMarker for Svg {}
 impl<State: 'static> Widget<State> for Svg {
     fn paint(&mut self, scene: &mut vello::Scene) {
         let scale = Affine::scale_non_uniform(
@@ -35,7 +36,7 @@ impl<State: 'static> Widget<State> for Svg {
     fn debug_name(&self) -> &str {
         "svg"
     }
-    fn layout(&mut self, _size_hint: Size, _font_cx: &mut FontContext) -> Size {
+    fn layout(&mut self, _: Size, _font_context: &mut FontContext) -> Size {
         self.size
     }
 
@@ -49,7 +50,7 @@ impl<State: 'static> Widget<State> for Svg {
 
     fn event(
         &mut self,
-        _event_cx: &mut event::EventCx,
+        _event_context: &mut event::EventContext,
         _event: event::WidgetEvent,
         _state: &mut State,
     ) -> event::Status {
